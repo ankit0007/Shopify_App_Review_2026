@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shopify_review
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d shopify_review"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shopify_review
+      SHOPIFY_API_KEY: ci-key
+      SHOPIFY_API_SECRET: ci-secret
+      SHOPIFY_APP_URL: https://ci.example.com
+      SESSION_SECRET: ci-session-secret-that-is-at-least-32-characters
+      ENCRYPTION_KEY: ci-encryption-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma db push
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

@@ -1,0 +1,20 @@
+<div
+  class="shopify-review-summary"
+  data-product-id="{{ product.id }}"
+  data-shop-domain="{{ shop.permanent_domain }}"
+  role="group"
+  aria-label="Product rating"
+>
+  <span aria-hidden="true">★★★★★</span>
+  <span data-review-summary>Loading reviews…</span>
+</div>
+
+{% schema %}
+{
+  "name": "Review rating summary",
+  "target": "section",
+  "javascript": "review-widgets.js",
+  "stylesheet": "review-widgets.css",
+  "settings": []
+}
+{% endschema %}

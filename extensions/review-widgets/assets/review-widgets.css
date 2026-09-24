@@ -1,0 +1,12 @@
+.shopify-review-summary {
+  display: inline-flex;
+  gap: .5rem;
+  align-items: center;
+  color: #111827;
+  font-size: .95rem;
+}
+
+.shopify-review-summary [aria-hidden="true"] {
+  color: #f59e0b;
+  letter-spacing: .1em;
+}

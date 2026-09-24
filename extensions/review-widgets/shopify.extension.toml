@@ -1,0 +1,10 @@
+name = "Review widgets"
+type = "theme"
+
+[settings]
+
+[[settings]]
+id = "reviews_per_page"
+type = "number"
+name = "Reviews per page"
+default = 10

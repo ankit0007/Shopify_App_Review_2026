@@ -1,0 +1,399 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReviewRequestStatus {
+  PENDING
+  SCHEDULED
+  SENT
+  OPENED
+  CLICKED
+  SUBMITTED
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+  DELETED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum ModerationAction {
+  APPROVE
+  REJECT
+  HIDE
+  DELETE
+  FEATURE
+}
+
+model Shop {
+  id                String            @id @default(cuid())
+  shopDomain        String            @unique
+  shopifyShopId     String?           @unique
+  name              String?
+  installedAt       DateTime          @default(now())
+  uninstalledAt     DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  settings          ShopSettings?
+  customers         Customer[]
+  products          Product[]
+  orders            Order[]
+  reviewRequests    ReviewRequest[]
+  reviews           Review[]
+  reviewEvents      ReviewEvent[]
+  emailTemplates    EmailTemplate[]
+  emailEvents       EmailEvent[]
+  webhookEvents     WebhookEvent[]
+  subscriptions     Subscription[]
+  usageRecords      UsageRecord[]
+  analyticsEvents   AnalyticsEvent[]
+  consents          Consent[]
+  auditLogs         AuditLog[]
+  sessions          ShopifySession[]
+}
+
+model ShopifySession {
+  id         String   @id
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  state      String?
+  isOnline   Boolean  @default(false)
+  scope      String?
+  expiresAt  DateTime?
+  accessToken String
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([shopId])
+}
+
+model Session {
+  id            String   @id
+  shop          String
+  state         String
+  isOnline      Boolean  @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean  @default(false)
+  locale        String?
+  collaborator  Boolean? @default(false)
+  emailVerified Boolean? @default(false)
+}
+
+model ShopSettings {
+  id                    String   @id @default(cuid())
+  shopId                String   @unique
+  shop                    Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  automaticRequests     Boolean  @default(true)
+  requestDelayDays      Int      @default(7)
+  reminderDelayDays     Int      @default(3)
+  maxReminders          Int      @default(1)
+  requestExpirationDays Int      @default(30)
+  moderationMode        String   @default("MANUAL")
+  primaryColor          String   @default("#2563eb")
+  secondaryColor        String   @default("#eff6ff")
+  textColor             String   @default("#111827")
+  reviewsPerPage        Int      @default(10)
+  showVerifiedBadge     Boolean  @default(true)
+  showCustomerName      Boolean  @default(true)
+  showDate              Boolean  @default(true)
+  showPhotos            Boolean  @default(true)
+  showVideos            Boolean  @default(true)
+  enableUgcGallery      Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Customer {
+  id              String          @id @default(cuid())
+  shopId          String
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopifyCustomerId String?
+  emailHash       String?
+  displayName     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  orders          Order[]
+  reviewRequests  ReviewRequest[]
+  reviews         Review[]
+  consents        Consent[]
+
+  @@unique([shopId, shopifyCustomerId])
+  @@index([shopId, emailHash])
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  shopId          String
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopifyProductId String
+  title           String
+  handle          String?
+  imageUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  orderItems      OrderItem[]
+  reviewRequests  ReviewRequest[]
+  reviews         Review[]
+
+  @@unique([shopId, shopifyProductId])
+  @@index([shopId, handle])
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  shopId          String
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerId      String?
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  shopifyOrderId  String
+  orderNumber     String?
+  fulfillmentDate DateTime?
+  status          String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  items           OrderItem[]
+  reviewRequests  ReviewRequest[]
+  reviews         Review[]
+
+  @@unique([shopId, shopifyOrderId])
+  @@index([shopId, fulfillmentDate])
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity       Int     @default(1)
+
+  @@unique([orderId, productId])
+}
+
+model ReviewRequest {
+  id              String             @id @default(cuid())
+  shopId          String
+  shop            Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerId      String?
+  customer        Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId         String?
+  order           Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  productId       String?
+  product         Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  tokenHash       String             @unique
+  status          ReviewRequestStatus @default(PENDING)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  expiresAt       DateTime?
+  reminderCount   Int                @default(0)
+  lastError       String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  reviews         Review[]
+  events          ReviewEvent[]
+
+  @@index([shopId, status, scheduledAt])
+  @@unique([shopId, orderId, productId, customerId])
+}
+
+model Review {
+  id                   String          @id @default(cuid())
+  shopId               String
+  shop                 Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId             String
+  product              Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderId              String?
+  order               Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customerId           String?
+  customer             Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  reviewRequestId      String?
+  reviewRequest        ReviewRequest?  @relation(fields: [reviewRequestId], references: [id], onDelete: SetNull)
+  rating               Int
+  title                String?
+  body                 String
+  displayName          String?
+  status               ReviewStatus    @default(PENDING)
+  verifiedPurchase     Boolean         @default(false)
+  verificationReason   String?
+  featured             Boolean         @default(false)
+  submittedAt          DateTime        @default(now())
+  deletedAt            DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  media                ReviewMedia[]
+  events               ReviewEvent[]
+
+  @@index([shopId, productId, status])
+  @@index([shopId, submittedAt])
+}
+
+model ReviewMedia {
+  id           String    @id @default(cuid())
+  reviewId     String
+  review       Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  type         MediaType
+  storageKey   String
+  originalName String?
+  contentType  String
+  bytes        Int
+  width        Int?
+  height       Int?
+  durationMs   Int?
+  thumbnailKey String?
+  approved     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model ReviewEvent {
+  id              String           @id @default(cuid())
+  shopId          String
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  reviewId        String?
+  review          Review?          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reviewRequestId String?
+  reviewRequest   ReviewRequest?   @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  action          String
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+
+  @@index([shopId, createdAt])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  type      String
+  subject   String
+  heading   String
+  bodyHtml  String
+  ctaLabel  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, type])
+}
+
+model EmailEvent {
+  id             String   @id @default(cuid())
+  shopId         String
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  reviewRequestId String?
+  eventType      String
+  providerId     String?
+  errorCode      String?
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([shopId, eventType, occurredAt])
+}
+
+model WebhookEvent {
+  id             String   @id @default(cuid())
+  shopId         String?
+  shop           Shop?    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  eventId        String   @unique
+  topic          String
+  payload        Json
+  processedAt    DateTime?
+  failedAt       DateTime?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+
+  @@index([topic, createdAt])
+}
+
+model Subscription {
+  id             String   @id @default(cuid())
+  shopId         String
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  provider       String   @default("shopify_app_pricing")
+  providerId     String?
+  planHandle     String
+  status         String
+  trialEndsAt    DateTime?
+  currentPeriodEnd DateTime?
+  raw            Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([shopId, status])
+}
+
+model UsageRecord {
+  id         String   @id @default(cuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  metric     String
+  periodStart DateTime
+  quantity   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([shopId, metric, periodStart])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name      String
+  value     Float?
+  metadata  Json?
+  occurredAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([shopId, name, occurredAt])
+}
+
+model Consent {
+  id         String    @id @default(cuid())
+  shopId     String
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  purpose    String
+  granted    Boolean
+  source     String
+  createdAt  DateTime  @default(now())
+
+  @@index([shopId, purpose])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  actorType String
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([shopId, createdAt])
+}
