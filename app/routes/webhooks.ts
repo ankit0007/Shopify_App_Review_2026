@@ -2,6 +2,7 @@ import type {Prisma} from '@prisma/client';
 import {config} from '../config.server';
 import {db} from '../db.server';
 import {verifyWebhookHmac} from '../lib/webhook-hmac.server';
+import {eraseCustomerData} from '../modules/privacy/privacy.service.server';
 
 export async function action({request}: {request: Request}) {
   const rawBody = await request.text();
@@ -18,6 +19,7 @@ export async function action({request}: {request: Request}) {
   const shop = shopDomain
     ? await db.shop.findUnique({where: {shopDomain}})
     : null;
+  const privacyPayload = payload as {customer?: {id?: number | string}};
 
   try {
     await db.webhookEvent.create({
@@ -37,15 +39,24 @@ export async function action({request}: {request: Request}) {
     });
   }
 
+  if (['customers/data_request', 'customers/redact'].includes(topic) && shop) {
+    await db.privacyRequest.create({
+      data: {
+        shopId: shop.id,
+        topic,
+        customerShopifyId: privacyPayload.customer?.id ? String(privacyPayload.customer.id) : undefined,
+        status: topic === 'customers/redact' ? 'PROCESSED' : 'RECEIVED',
+        processedAt: topic === 'customers/redact' ? new Date() : undefined,
+      },
+    });
+  }
+
   if (topic === 'customers/redact' && shop) {
-    const customer = payload as {customer?: {id?: unknown}};
-    const customerId = typeof customer.customer?.id === 'number'
-      ? String(customer.customer.id)
+    const customerId = privacyPayload.customer?.id !== undefined
+      ? String(privacyPayload.customer.id)
       : undefined;
     if (customerId) {
-      await db.customer.deleteMany({
-        where: {shopId: shop.id, shopifyCustomerId: customerId},
-      });
+      await eraseCustomerData(shop.id, customerId);
     }
   }
 

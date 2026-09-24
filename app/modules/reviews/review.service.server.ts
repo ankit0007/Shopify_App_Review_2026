@@ -1,5 +1,6 @@
 import {db} from '../../db.server';
 import {reviewSubmissionSchema, type ReviewSubmission} from './review.schema';
+import {verifyPurchase} from './verification.service.server';
 
 export async function submitReview(input: {
   shopId: string;
@@ -10,7 +11,14 @@ export async function submitReview(input: {
   data: ReviewSubmission;
 }) {
   const data = reviewSubmissionSchema.parse(input.data);
-  const verifiedPurchase = Boolean(input.orderId);
+  const verifiedPurchase = input.orderId
+    ? await verifyPurchase({
+      shopId: input.shopId,
+      orderId: input.orderId,
+      productId: input.productId,
+      customerId: input.customerId,
+    })
+    : false;
 
   return db.$transaction(async (tx) => {
     const review = await tx.review.create({
@@ -25,7 +33,7 @@ export async function submitReview(input: {
         body: data.body,
         displayName: data.displayName,
         verifiedPurchase,
-        verificationReason: verifiedPurchase ? 'Matched eligible Shopify order item' : null,
+        verificationReason: verifiedPurchase ? 'Matched eligible Shopify order item for this shop and customer' : 'No matching eligible Shopify order item',
       },
     });
 

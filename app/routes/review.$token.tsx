@@ -4,6 +4,12 @@ import {db} from '../db.server';
 import {hashToken} from '../lib/tokens.server';
 import {fail} from '../lib/api.server';
 import {submitReview} from '../modules/reviews/review.service.server';
+import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
+import {isSameOrigin} from '../lib/csrf.server';
+
+export function headers() {
+  return {'X-Robots-Tag': 'noindex, nofollow, noarchive'};
+}
 
 export async function loader({params}: {params: {token?: string}}) {
   const token = params.token;
@@ -12,19 +18,22 @@ export async function loader({params}: {params: {token?: string}}) {
     where: {tokenHash: hashToken(token)},
     include: {product: true},
   });
-  if (!request || request.expiresAt && request.expiresAt < new Date() || request.status === 'CANCELLED') {
+  if (!request || request.expiresAt && request.expiresAt < new Date() || ['CANCELLED', 'SUBMITTED'].includes(request.status)) {
     throw new Response('This review link has expired.', {status: 410});
   }
   return {productTitle: request.product?.title ?? 'your purchase', token};
 }
 
 export async function action({request, params}: {request: Request; params: {token?: string}}) {
+  if (!isSameOrigin(request)) return fail('CSRF_REJECTED', 'Request origin is not allowed.', 403);
+  const rate = consumeRateLimit(`review-submit:${requestClientKey(request)}`, 10, 60 * 60_000);
+  if (!rate.allowed) return fail('RATE_LIMITED', 'Too many submissions. Try again later.', 429);
   const token = params.token;
   if (!token) return fail('INVALID_TOKEN', 'Review link is invalid.', 404);
   const reviewRequest = await db.reviewRequest.findUnique({
     where: {tokenHash: hashToken(token)},
   });
-  if (!reviewRequest || reviewRequest.expiresAt && reviewRequest.expiresAt < new Date()) {
+  if (!reviewRequest || !reviewRequest.productId || reviewRequest.expiresAt && reviewRequest.expiresAt < new Date() || ['CANCELLED', 'SUBMITTED'].includes(reviewRequest.status)) {
     return fail('EXPIRED_TOKEN', 'This review link has expired.', 410);
   }
   const formData = await request.formData();

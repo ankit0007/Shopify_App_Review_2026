@@ -16,12 +16,14 @@ This repository is a production-oriented foundation and vertical slice. Shopify 
 
 ## Local setup
 
-1. Install Node.js 20.19+ and Shopify CLI.
+1. Install Node.js 22+ and Shopify CLI.
 2. Copy `.env.example` to `.env` and set development credentials.
 3. Run `npm install`.
 4. Run `npm run db:generate` and apply migrations with `npm run db:migrate`.
 5. Link/deploy the app configuration with `shopify app config link` and `shopify app deploy`.
 6. Start development with `npm run dev`.
+
+For production, use `docker-compose.production.yml`; do not copy production secrets into Git. The compose project publishes only `127.0.0.1:3500` and keeps PostgreSQL on a private network.
 
 Do not commit `.env`, credentials, access tokens, or customer exports.
 

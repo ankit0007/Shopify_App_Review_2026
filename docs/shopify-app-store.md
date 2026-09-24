@@ -3,12 +3,14 @@
 Before submission, verify in a real development store:
 
 - managed installation/token exchange and reinstallation
+- `/auth/*` must be registered as the `authPathPrefix` route and call `authenticate.admin(request)`
 - minimum scopes and current API version
 - HTTPS application/callback URLs
 - mandatory compliance webhooks and raw-body HMAC rejection
 - uninstall and shop/customer redaction
 - Shopify App Pricing plan approval/status
 - Theme App Extension blocks on modern themes
+- App Proxy signature validation for storefront API requests
 - accessibility, performance, responsive customer flow, and safe public DTOs
 - privacy policy, terms, support contact, retention behavior, and listing assets
 

@@ -11,7 +11,6 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   SESSION_SECRET: z.string().min(32),
   ENCRYPTION_KEY: z.string().min(16),
-  REDIS_URL: z.string().url().optional(),
   STORAGE_ENDPOINT: z.string().url().optional(),
   STORAGE_BUCKET: z.string().min(1).optional(),
   STORAGE_ACCESS_KEY: z.string().min(1).optional(),

@@ -1,0 +1,54 @@
+name: shopifyreview
+
+services:
+  shopifyreview-db:
+    image: postgres:16-alpine
+    container_name: shopifyreview-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shopify_review_db}
+      POSTGRES_USER: ${POSTGRES_USER:-shopify_review}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - shopifyreview-db-data:/var/lib/postgresql/data
+    networks:
+      - shopifyreview-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1536m
+    cpus: 1.0
+
+  shopifyreview-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shopifyreview-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shopify_review}:${POSTGRES_PASSWORD}@shopifyreview-db:5432/${POSTGRES_DB:-shopify_review_db}
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+    ports:
+      - "127.0.0.1:3500:3000"
+    depends_on:
+      shopifyreview-db:
+        condition: service_healthy
+    networks:
+      - shopifyreview-network
+    mem_limit: 1536m
+    cpus: 1.0
+
+volumes:
+  shopifyreview-db-data:
+    name: shopifyreview-db-data
+
+networks:
+  shopifyreview-network:
+    name: shopifyreview-network
+    driver: bridge

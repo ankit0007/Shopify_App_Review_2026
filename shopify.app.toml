@@ -1,13 +1,14 @@
-client_id = "YOUR_SHOPIFY_API_KEY"
 name = "Shopify Review"
-application_url = "https://example.ngrok.app"
+application_url = "https://shopifyreview.it3.in"
 embedded = true
-
-[build]
-automatically_update_urls_on_dev = true
 
 [access_scopes]
 scopes = "read_products,read_orders,read_customers"
+
+[auth]
+redirect_urls = [
+  "https://shopifyreview.it3.in/auth/callback"
+]
 
 [webhooks]
 api_version = "2026-01"
@@ -21,6 +22,6 @@ compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"
 uri = "/webhooks"
 
 [app_proxy]
-url = "https://example.ngrok.app/api/public"
+url = "https://shopifyreview.it3.in/api/public"
 subpath = "shopify-review"
 prefix = "apps"

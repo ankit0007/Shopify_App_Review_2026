@@ -6,8 +6,7 @@ export class PlanService {
   private readonly billing = new BillingService();
 
   async getPlan(shopId: string) {
-    const shop = await db.shop.findUnique({where: {id: shopId}, select: {shopifyShopId: true}});
-    const subscription = await this.billing.getActiveSubscription(shop?.shopifyShopId ?? '');
+    const subscription = await this.billing.getSubscriptionForShop(shopId);
     return subscription.plan;
   }
 

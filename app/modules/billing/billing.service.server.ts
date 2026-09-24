@@ -1,4 +1,5 @@
 import {config} from '../../config.server';
+import {db} from '../../db.server';
 import {getPlan, type PlanDefinition} from '../plans/plans';
 
 export class BillingService {
@@ -7,7 +8,7 @@ export class BillingService {
       return {plan: getPlan('free'), status: 'not_configured', provider: 'shopify_app_pricing'};
     }
     const response = await fetch(
-      `https://partners.shopify.com/${config.SHOPIFY_PARTNER_ORG_ID}/api/2026-01/graphql.json`,
+      `https://partners.shopify.com/${config.SHOPIFY_PARTNER_ORG_ID}/api/${config.SHOPIFY_API_VERSION}/graphql.json`,
       {
         method: 'POST',
         headers: {
@@ -41,7 +42,18 @@ export class BillingService {
   }
 
   async canUseFeature(shopId: string, feature: string) {
-    const subscription = await this.getActiveSubscription(shopId);
+    const subscription = await this.getSubscriptionForShop(shopId);
     return subscription.plan.features.includes(feature);
+  }
+
+  async getSubscriptionForShop(shopId: string) {
+    const shop = await db.shop.findUnique({where: {id: shopId}, select: {shopifyShopId: true}});
+    const subscription = await this.getActiveSubscription(shop?.shopifyShopId ?? '');
+    await db.subscription.upsert({
+      where: {shopId_provider: {shopId, provider: subscription.provider}},
+      update: {planHandle: subscription.plan.handle, status: subscription.status},
+      create: {shopId, provider: subscription.provider, planHandle: subscription.plan.handle, status: subscription.status},
+    });
+    return subscription;
   }
 }

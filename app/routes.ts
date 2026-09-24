@@ -3,6 +3,7 @@ import {index, route} from '@react-router/dev/routes';
 
 export default [
   index('routes/_index.tsx'),
+  route('auth/*', 'routes/auth.$.tsx'),
   route('health', 'routes/health.ts'),
   route('webhooks', 'routes/webhooks.ts'),
   route('review/:token', 'routes/review.$token.tsx'),

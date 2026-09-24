@@ -17,6 +17,20 @@ const shopify = shopifyApp({
   authPathPrefix: '/auth',
   distribution: AppDistribution.AppStore,
   sessionStorage: new PrismaSessionStorage(db),
+  hooks: {
+    afterAuth: async ({session}) => {
+      const shop = await db.shop.upsert({
+        where: {shopDomain: session.shop},
+        update: {uninstalledAt: null},
+        create: {shopDomain: session.shop},
+      });
+      await db.shopSettings.upsert({
+        where: {shopId: shop.id},
+        update: {},
+        create: {shopId: shop.id},
+      });
+    },
+  },
   webhooks: {
     APP_UNINSTALLED: {
       deliveryMethod: DeliveryMethod.Http,
