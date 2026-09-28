@@ -1,4 +1,7 @@
 .shopify-review-widget {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   margin: 2rem 0;
   padding: 1.5rem;
   border: 1px solid #e5e7eb;
@@ -31,7 +34,19 @@
 
 .shopify-review-widget__stars .is-filled,
 .shopify-review-widget__picker-stars .is-filled {
-  color: #f5b301;
+  color: var(--review-accent, #f5b301);
+}
+
+@media (max-width: 414px) {
+  .shopify-review-widget {
+    margin: 1rem 0;
+    padding: 1rem;
+  }
+
+  .shopify-review-widget__form button[type="submit"],
+  .shopify-review-widget [data-load-more] {
+    width: 100%;
+  }
 }
 
 .shopify-review-widget__picker-stars button {

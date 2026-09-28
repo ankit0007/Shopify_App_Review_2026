@@ -1,4 +1,4 @@
-import {createHmac, timingSafeEqual} from 'node:crypto';
+import {createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 
 function safeEqualHex(expected: string, received: string) {
   const expectedBuffer = Buffer.from(expected, 'hex');
@@ -24,14 +24,28 @@ export function verifyAppProxySignature(url: URL, secret: string) {
   return safeEqualHex(expected, signature);
 }
 
-export function encodePublicCursor(id: string) {
-  return Buffer.from(id, 'utf8').toString('base64url');
+function cursorKey(secret: string) {
+  return createHash('sha256').update(secret).digest();
 }
 
-export function decodePublicCursor(cursor: string) {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cursor)) return null;
+export function encodePublicCursor(id: string, secret: string) {
+  if (!/^[a-z0-9]{8,32}$/i.test(id)) throw new Error('Cursor id is invalid');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', cursorKey(secret), iv);
+  const encrypted = Buffer.concat([cipher.update(id, 'utf8'), cipher.final()]);
+  return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+
+export function decodePublicCursor(cursor: string, secret: string) {
+  const [ivPart, tagPart, encryptedPart] = cursor.split('.');
+  if (!ivPart || !tagPart || !encryptedPart) return null;
   try {
-    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const decipher = createDecipheriv('aes-256-gcm', cursorKey(secret), Buffer.from(ivPart, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagPart, 'base64url'));
+    const decoded = Buffer.concat([
+      decipher.update(Buffer.from(encryptedPart, 'base64url')),
+      decipher.final(),
+    ]).toString('utf8');
     return /^[a-z0-9]{8,32}$/i.test(decoded) ? decoded : null;
   } catch {
     return null;

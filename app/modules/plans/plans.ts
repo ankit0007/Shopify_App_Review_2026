@@ -35,3 +35,8 @@ export const plans: Record<string, PlanDefinition> = {
 export function getPlan(handle: string | null | undefined) {
   return plans[handle ?? 'free'] ?? plans.free;
 }
+
+export function planForSubscription(status: string, handle?: string | null) {
+  if (status !== 'active') return plans.free;
+  return getPlan(handle);
+}

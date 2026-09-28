@@ -1,0 +1,47 @@
+<section
+  class="shopify-review-widget"
+  data-product-id="{{ product.id }}"
+  data-placement="{{ placement }}"
+  data-per-page="{{ per_page | default: 5 }}"
+  data-show-name="{% if show_name %}true{% else %}false{% endif %}"
+  data-show-date="{% if show_date %}true{% else %}false{% endif %}"
+  data-show-verified="{% if show_verified %}true{% else %}false{% endif %}"
+  data-empty-message="{{ empty_message | escape }}"
+  style="--review-accent: {{ accent | default: '#f5b301' }};"
+  aria-label="Customer reviews"
+>
+  <h2 class="shopify-review-widget__title">Customer reviews</h2>
+  <p class="shopify-review-widget__summary" data-review-summary>{{ empty_message | default: 'No reviews yet' | escape }}</p>
+  <div class="shopify-review-widget__list" data-review-list></div>
+  <button type="button" data-load-more hidden>Load more reviews</button>
+  {% if show_form %}
+    <form id="shopify-review-form-{{ product.id }}" class="shopify-review-widget__form" data-review-form method="post" action="/apps/shopify-review/products/{{ product.id }}/reviews">
+      <h3>Write a review</h3>
+      <div class="shopify-review-widget__picker" data-star-picker>
+        <span class="shopify-review-widget__picker-label">Your rating</span>
+        <div class="shopify-review-widget__picker-stars" role="radiogroup" aria-label="Rating">
+          <button type="button" role="radio" data-value="1" aria-label="1 star">★</button>
+          <button type="button" role="radio" data-value="2" aria-label="2 stars">★</button>
+          <button type="button" role="radio" data-value="3" aria-label="3 stars">★</button>
+          <button type="button" role="radio" data-value="4" aria-label="4 stars">★</button>
+          <button type="button" role="radio" data-value="5" aria-label="5 stars">★</button>
+        </div>
+        <input type="hidden" name="rating" value="5" required>
+      </div>
+      <label>
+        Title
+        <input name="title" type="text" maxlength="160">
+      </label>
+      <label>
+        Name
+        <input name="displayName" type="text" maxlength="120" autocomplete="name">
+      </label>
+      <label>
+        Review
+        <textarea name="body" required minlength="1" maxlength="5000" rows="4"></textarea>
+      </label>
+      <button type="submit">{{ submit_label | default: 'Submit review' | escape }}</button>
+      <p data-review-message role="status" aria-live="polite"></p>
+    </form>
+  {% endif %}
+</section>

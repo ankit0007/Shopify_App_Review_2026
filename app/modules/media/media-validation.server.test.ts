@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {createTenantMediaKey, hasAllowedSignature, validateMediaMetadata} from './media-validation.server';
+import {assertSafeImageDimensions, createTenantMediaKey, hasAllowedSignature, readImageDimensions, validateMediaMetadata} from './media-validation.server';
 
 describe('media validation', () => {
   it('accepts safe supported metadata and creates tenant-scoped keys', () => {
@@ -25,5 +25,15 @@ describe('media validation', () => {
     expect(hasAllowedSignature('image/webp', webp)).toBe(true);
     expect(hasAllowedSignature('video/mp4', mp4)).toBe(true);
     expect(hasAllowedSignature('image/webp', new TextEncoder().encode('RIFFbad!'))).toBe(false);
+  });
+
+  it('reads and limits image dimensions', () => {
+    const png = new Uint8Array(24);
+    png.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+    const view = new DataView(png.buffer);
+    view.setUint32(16, 1200);
+    view.setUint32(20, 800);
+    expect(readImageDimensions('image/png', png)).toEqual({width: 1200, height: 800});
+    expect(() => assertSafeImageDimensions({width: 9000, height: 10})).toThrow();
   });
 });

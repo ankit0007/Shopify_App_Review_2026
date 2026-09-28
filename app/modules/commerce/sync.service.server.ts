@@ -98,8 +98,20 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
       });
 
       if (payload.fulfillment_status !== 'fulfilled' || !customerId) continue;
+      const shop = await tx.shop.findUnique({where: {id: shopId}, select: {uninstalledAt: true}});
+      if (shop?.uninstalledAt) continue;
       const settings = await tx.shopSettings.findUnique({where: {shopId}});
       if (settings?.automaticRequests === false) continue;
+      const optedOut = await tx.consent.findFirst({
+        where: {shopId, customerId, purpose: 'review_request', granted: false},
+        select: {id: true},
+      });
+      if (optedOut) continue;
+      const reviewed = await tx.review.findFirst({
+        where: {shopId, productId: product.id, customerId, deletedAt: null},
+        select: {id: true},
+      });
+      if (reviewed) continue;
       const existing = await tx.reviewRequest.findFirst({
         where: {shopId, orderId: order.id, productId: product.id, customerId},
         select: {id: true},

@@ -25,9 +25,10 @@ export async function loader({params, request}: {params: {productId?: string}; r
   if (!verifyAppProxySignature(url, config.SHOPIFY_API_SECRET)) {
     return Response.json({success: false, error: {code: 'INVALID_SIGNATURE', message: 'Request signature is invalid'}}, {status: 401});
   }
-  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 10), 1), 50);
+  const requestedLimit = Number(url.searchParams.get('limit') ?? 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 20) : 10;
   const cursorValue = url.searchParams.get('cursor');
-  const cursor = cursorValue ? decodePublicCursor(cursorValue) : undefined;
+  const cursor = cursorValue ? decodePublicCursor(cursorValue, config.SHOPIFY_API_SECRET) : undefined;
   if (cursorValue && !cursor) return Response.json({success: false, error: {code: 'INVALID_CURSOR', message: 'Cursor is invalid'}}, {status: 400});
 
   const product = await db.product.findFirst({
@@ -66,7 +67,7 @@ export async function loader({params, request}: {params: {productId?: string}; r
       ...review,
       submittedAt: review.submittedAt.toISOString(),
     })),
-    nextCursor: hasMore && items.at(-1) ? encodePublicCursor(items.at(-1)!.id) : null,
+    nextCursor: hasMore && items.at(-1) ? encodePublicCursor(items.at(-1)!.id, config.SHOPIFY_API_SECRET) : null,
     averageRating: aggregate._avg.rating ?? 0,
     totalReviews: aggregate._count._all,
   });
@@ -112,6 +113,18 @@ export async function action({params, request}: {params: {productId?: string}; r
     select: {id: true},
   });
   if (!product) return fail('PRODUCT_NOT_SYNCED', 'This product is not available yet', 404);
+  const duplicate = await db.review.findFirst({
+    where: {
+      shopId: shop.id,
+      productId: product.id,
+      body: parsed.data.body,
+      displayName: parsed.data.displayName ?? null,
+      deletedAt: null,
+      submittedAt: {gte: new Date(Date.now() - 24 * 60 * 60 * 1000)},
+    },
+    select: {id: true},
+  });
+  if (duplicate) return fail('DUPLICATE_REVIEW', 'This review was already submitted', 409);
   await db.review.create({
     data: {
       shopId: shop.id,

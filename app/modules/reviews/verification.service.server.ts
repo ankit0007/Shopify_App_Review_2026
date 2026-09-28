@@ -1,4 +1,5 @@
 import {db} from '../../db.server';
+import {purchaseMatchesReview} from './purchase-match';
 
 export async function verifyPurchase(input: {
   shopId: string;
@@ -6,17 +7,31 @@ export async function verifyPurchase(input: {
   productId: string;
   customerId?: string;
 }) {
+  if (!input.customerId) return false;
   const item = await db.orderItem.findFirst({
     where: {
       orderId: input.orderId,
       productId: input.productId,
+      product: {shopId: input.shopId},
       order: {
         shopId: input.shopId,
         status: 'fulfilled',
-        ...(input.customerId ? {customerId: input.customerId} : {}),
+        customerId: input.customerId,
       },
     },
-    select: {id: true},
+    select: {
+      productId: true,
+      order: {select: {shopId: true, status: true, customerId: true}},
+    },
   });
-  return Boolean(item);
+  if (!item?.order) return false;
+  return purchaseMatchesReview({
+    shopId: input.shopId,
+    orderShopId: item.order.shopId,
+    orderStatus: item.order.status,
+    orderCustomerId: item.order.customerId,
+    customerId: input.customerId,
+    lineProductId: item.productId,
+    reviewProductId: input.productId,
+  });
 }

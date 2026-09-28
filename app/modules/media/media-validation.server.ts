@@ -33,6 +33,34 @@ export function createTenantMediaKey(shopId: string, reviewId: string, filename:
   return `${shopId}/${reviewId}/${randomUUID()}${extension}`;
 }
 
+export function readImageDimensions(contentType: string, bytes: Uint8Array) {
+  if (contentType === 'image/png' && bytes.length >= 24) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return {width: view.getUint32(16), height: view.getUint32(20)};
+  }
+  if (contentType === 'image/jpeg') {
+    let offset = 2;
+    while (offset + 8 < bytes.length) {
+      if (bytes[offset] !== 0xff) return null;
+      const marker = bytes[offset + 1];
+      const size = (bytes[offset + 2] << 8) + bytes[offset + 3];
+      if (marker >= 0xc0 && marker <= 0xc3) {
+        return {width: (bytes[offset + 7] << 8) + bytes[offset + 8], height: (bytes[offset + 5] << 8) + bytes[offset + 6]};
+      }
+      if (!size) return null;
+      offset += 2 + size;
+    }
+  }
+  return null;
+}
+
+export function assertSafeImageDimensions(dimensions: {width: number; height: number} | null) {
+  if (!dimensions || dimensions.width < 1 || dimensions.height < 1 || dimensions.width > 8000 || dimensions.height > 8000) {
+    throw new Error('Image dimensions are not allowed');
+  }
+  return dimensions;
+}
+
 export function hasAllowedSignature(contentType: string, bytes: Uint8Array) {
   if (contentType === 'image/png') {
     return bytes.length >= 8 &&

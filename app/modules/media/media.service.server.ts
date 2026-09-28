@@ -1,6 +1,6 @@
 import {db} from '../../db.server';
 import {createMediaStorage} from './media-storage.server';
-import {createTenantMediaKey, hasAllowedSignature, validateMediaMetadata} from './media-validation.server';
+import {assertSafeImageDimensions, createTenantMediaKey, hasAllowedSignature, readImageDimensions, validateMediaMetadata} from './media-validation.server';
 
 export async function attachReviewMedia(input: {
   shopId: string;
@@ -21,6 +21,9 @@ export async function attachReviewMedia(input: {
       });
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (!hasAllowedSignature(file.type, bytes)) throw new Error('File signature does not match its media type');
+      const dimensions = metadata.mediaType === 'IMAGE'
+        ? assertSafeImageDimensions(readImageDimensions(file.type, bytes))
+        : null;
       const key = createTenantMediaKey(input.shopId, input.reviewId, file.name);
       await storage.upload({body: file, contentType: file.type, size: file.size, storageKey: key});
       const media = await db.reviewMedia.create({
@@ -31,6 +34,8 @@ export async function attachReviewMedia(input: {
           originalName: file.name.slice(0, 255),
           contentType: file.type,
           bytes: file.size,
+          width: dimensions?.width,
+          height: dimensions?.height,
         },
       });
       created.push(media.id);

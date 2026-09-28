@@ -33,7 +33,7 @@ Do not commit `.env`, credentials, access tokens, or customer exports.
 
 ## Architecture and operations
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/database.md`](docs/database.md), [`docs/api.md`](docs/api.md), [`docs/security.md`](docs/security.md), [`docs/billing.md`](docs/billing.md), [`docs/deployment.md`](docs/deployment.md), and [`docs/shopify-app-store.md`](docs/shopify-app-store.md).
+See [`docs/architecture.md`](docs/architecture.md), [`docs/database.md`](docs/database.md), [`docs/api.md`](docs/api.md), [`docs/security.md`](docs/security.md), [`docs/billing.md`](docs/billing.md), [`docs/deployment.md`](docs/deployment.md), [`docs/admin-panel.md`](docs/admin-panel.md), [`docs/smtp-configuration.md`](docs/smtp-configuration.md), and [`docs/shopify-app-store.md`](docs/shopify-app-store.md).
 
 ## Important limitations before launch
 

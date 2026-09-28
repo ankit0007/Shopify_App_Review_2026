@@ -1,6 +1,6 @@
 import {config} from '../../config.server';
 import {db} from '../../db.server';
-import {getPlan, type PlanDefinition} from '../plans/plans';
+import {getPlan, planForSubscription, type PlanDefinition} from '../plans/plans';
 
 type AdminClient = {
   graphql: (query: string, options?: {variables?: Record<string, unknown>}) => Promise<Response>;
@@ -80,9 +80,10 @@ export class BillingService {
     if (body.errors?.length) throw new Error('Shopify Partner API returned GraphQL errors');
     const subscription = body.data?.activeSubscription;
     const handle = subscription?.items?.[0]?.handle;
+    const status = subscription ? 'active' : 'inactive';
     return {
-      plan: getPlan(handle),
-      status: subscription ? 'active' : 'inactive',
+      plan: planForSubscription(status, handle),
+      status,
       provider: 'shopify_app_pricing',
     };
   }

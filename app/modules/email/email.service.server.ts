@@ -1,6 +1,6 @@
 import {config} from '../../config.server';
 
-export type EmailMessage = {to: string; subject: string; html: string};
+export type EmailMessage = {to: string; subject: string; html: string; text?: string};
 
 export interface EmailService {
   send(message: EmailMessage): Promise<{providerId?: string}>;

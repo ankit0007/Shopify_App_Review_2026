@@ -21,8 +21,11 @@ describe('Shopify App Proxy signatures', () => {
   });
 
   it('only accepts cursors that decode to an internal identifier', () => {
-    const cursor = encodePublicCursor('cm1234567890123456789012');
-    expect(decodePublicCursor(cursor)).toBe('cm1234567890123456789012');
-    expect(decodePublicCursor('not-valid')).toBeNull();
+    const secret = 'cursor-secret';
+    const cursor = encodePublicCursor('cm1234567890123456789012', secret);
+    expect(cursor).not.toContain('cm1234567890123456789012');
+    expect(decodePublicCursor(cursor, secret)).toBe('cm1234567890123456789012');
+    expect(decodePublicCursor(cursor, 'other-secret')).toBeNull();
+    expect(decodePublicCursor('not-valid', secret)).toBeNull();
   });
 });

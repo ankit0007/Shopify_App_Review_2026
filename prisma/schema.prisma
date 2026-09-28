@@ -68,6 +68,7 @@ model Shop {
   auditLogs       AuditLog[]
   privacyRequests PrivacyRequest[]
   sessions        ShopifySession[]
+  emailDeliveries EmailDelivery[]
 }
 
 model ShopifySession {
@@ -418,4 +419,86 @@ model PrivacyRequest {
   createdAt         DateTime  @default(now())
 
   @@index([shopId, topic, createdAt])
+}
+
+model PlatformAdmin {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  sessions     PlatformSession[]
+  auditLogs    PlatformAuditLog[]
+}
+
+model PlatformSession {
+  id        String        @id @default(cuid())
+  adminId   String
+  admin     PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String        @unique
+  csrfToken String
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+
+  @@index([adminId])
+}
+
+model SmtpConfiguration {
+  id                String    @id @default("platform")
+  host              String
+  port              Int
+  username          String
+  encryptedPassword String
+  encryptionMode    String
+  fromName          String
+  fromEmail         String
+  replyTo           String?
+  enabled           Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastTestedAt      DateTime?
+  lastTestStatus    String?
+  lastTestError     String?
+}
+
+model PlatformEmailTemplate {
+  id        String   @id @default(cuid())
+  type      String   @unique
+  subject   String
+  htmlBody  String
+  textBody  String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailDelivery {
+  id               String    @id @default(cuid())
+  shopId           String?
+  shop             Shop?     @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  reviewRequestId  String?
+  templateType     String
+  recipientHash    String
+  recipientMasked  String
+  status           String
+  retryCount       Int       @default(0)
+  nextAttemptAt    DateTime?
+  failureReason    String?
+  providerResponse String?
+  createdAt        DateTime  @default(now())
+  acceptedAt       DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+}
+
+model PlatformAuditLog {
+  id        String         @id @default(cuid())
+  adminId   String?
+  admin     PlatformAdmin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action    String
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([createdAt])
 }

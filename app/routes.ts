@@ -8,6 +8,17 @@ export default [
   route('webhooks', 'routes/webhooks.ts'),
   route('review/:token', 'routes/review.$token.tsx'),
   route('api/public/products/:productId/reviews', 'routes/api.public.products.$productId.reviews.ts'),
+  route('unsubscribe/:token', 'routes/unsubscribe.$token.tsx'),
+  route('admin/login', 'routes/admin.login.tsx'),
+  route('admin', 'routes/admin.tsx', [
+    index('routes/admin._index.tsx'),
+    route('dashboard', 'routes/admin.dashboard.tsx'),
+    route('smtp', 'routes/admin.smtp.tsx'),
+    route('email-templates', 'routes/admin.email-templates.tsx'),
+    route('email-logs', 'routes/admin.email-logs.tsx'),
+    route('system', 'routes/admin.system.tsx'),
+    route('audit-log', 'routes/admin.audit-log.tsx'),
+  ]),
   route('app', 'routes/app.tsx', [
     index('routes/app._index.tsx'),
     route('reviews', 'routes/app.reviews.tsx'),

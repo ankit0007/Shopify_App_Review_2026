@@ -1,39 +1,15 @@
 {% if product %}
-<section
-  class="shopify-review-widget"
-  data-product-id="{{ product.id }}"
-  data-product-title="{{ product.title | escape }}"
-  aria-label="Customer reviews"
->
-  <h2 class="shopify-review-widget__title">Customer reviews</h2>
-  <p class="shopify-review-widget__summary" data-review-summary>No reviews yet</p>
-  <div class="shopify-review-widget__list" data-review-list></div>
-  <form id="shopify-review-form-{{ product.id }}" class="shopify-review-widget__form" data-review-form method="post" action="/apps/shopify-review/products/{{ product.id }}/reviews">
-    <h3>Write a review</h3>
-    <div class="shopify-review-widget__picker" data-star-picker>
-      <span class="shopify-review-widget__picker-label">Your rating</span>
-      <div class="shopify-review-widget__picker-stars" role="radiogroup" aria-label="Rating">
-        <button type="button" role="radio" data-value="1" aria-label="1 star">★</button>
-        <button type="button" role="radio" data-value="2" aria-label="2 stars">★</button>
-        <button type="button" role="radio" data-value="3" aria-label="3 stars">★</button>
-        <button type="button" role="radio" data-value="4" aria-label="4 stars">★</button>
-        <button type="button" role="radio" data-value="5" aria-label="5 stars">★</button>
-      </div>
-      <input type="hidden" name="rating" value="5">
-    </div>
-    <label>
-      Name
-      <input name="displayName" type="text" maxlength="120" autocomplete="name">
-    </label>
-    <label>
-      Review
-      <textarea name="body" required maxlength="5000" rows="4"></textarea>
-    </label>
-    <input name="productTitle" type="hidden" value="{{ product.title | escape }}">
-    <button type="submit">Submit review</button>
-    <p data-review-message role="status" aria-live="polite"></p>
-  </form>
-</section>
+  {% render 'review-widget',
+    placement: 'embed',
+    accent: block.settings.accent_color,
+    per_page: block.settings.reviews_per_page,
+    show_form: block.settings.show_form,
+    show_name: block.settings.show_customer_name,
+    show_date: block.settings.show_date,
+    show_verified: block.settings.show_verified_badge,
+    empty_message: block.settings.empty_message,
+    submit_label: block.settings.submit_label
+  %}
 {% endif %}
 
 {% schema %}
@@ -43,12 +19,14 @@
   "javascript": "review-widgets.js",
   "stylesheet": "review-widgets.css",
   "settings": [
-    {
-      "type": "color",
-      "id": "accent_color",
-      "label": "Accent color",
-      "default": "#f5b301"
-    }
+    {"type": "color", "id": "accent_color", "label": "Star color", "default": "#f5b301"},
+    {"type": "range", "id": "reviews_per_page", "label": "Reviews per page", "min": 1, "max": 10, "step": 1, "default": 5},
+    {"type": "checkbox", "id": "show_form", "label": "Show review form", "default": true},
+    {"type": "checkbox", "id": "show_customer_name", "label": "Show customer name", "default": true},
+    {"type": "checkbox", "id": "show_date", "label": "Show review date", "default": true},
+    {"type": "checkbox", "id": "show_verified_badge", "label": "Show verified purchase badge", "default": true},
+    {"type": "text", "id": "empty_message", "label": "Empty state message", "default": "No reviews yet"},
+    {"type": "text", "id": "submit_label", "label": "Submit button text", "default": "Submit review"}
   ]
 }
 {% endschema %}
