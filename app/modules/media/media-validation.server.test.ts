@@ -18,4 +18,12 @@ describe('media validation', () => {
     expect(hasAllowedSignature('image/jpeg', new Uint8Array([0xff, 0xd8, 0xff]))).toBe(true);
     expect(hasAllowedSignature('image/jpeg', new Uint8Array([0, 1, 2]))).toBe(false);
   });
+
+  it('checks complete WebP and ISO-base media signatures', () => {
+    const webp = new Uint8Array([...new TextEncoder().encode('RIFF'), 0, 0, 0, 0, ...new TextEncoder().encode('WEBP')]);
+    const mp4 = new Uint8Array([0, 0, 0, 0, ...new TextEncoder().encode('ftyp')]);
+    expect(hasAllowedSignature('image/webp', webp)).toBe(true);
+    expect(hasAllowedSignature('video/mp4', mp4)).toBe(true);
+    expect(hasAllowedSignature('image/webp', new TextEncoder().encode('RIFFbad!'))).toBe(false);
+  });
 });
