@@ -262,3 +262,31 @@ The storefront script is about 8 KB and the stylesheet is about 2.4 KB before CD
 - Replace the process-local rate limiter before running more than one app process.
 
 No production deployment or App Store submission was performed.
+
+## Platform Admin & SMTP E2E Test
+
+Date: 2026-09-29
+
+Local only. The app ran at `http://127.0.0.1:3000`. PostgreSQL was an embedded local server on `127.0.0.1:5432`, database `shopify_review_dev`. SMTP was a local STARTTLS mock on `127.0.0.1:2525`. No production host, Nginx, Docker, database, or SMTP service was contacted, and no production email was sent.
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Local database setup | PASS | `npx prisma migrate deploy` applied migrations `0001` through `0007_platform_smtp_admin`. Tables present: `PlatformAdmin`, `PlatformSession`, `SmtpConfiguration`, `PlatformEmailTemplate`, `EmailDelivery`, `PlatformAuditLog`. Six templates were seeded and enabled. |
+| Admin login | PASS | Unauthenticated `/admin/dashboard` redirected to `/admin/login`. Valid login reached the dashboard. A wrong password returned “The email or password is incorrect.” Empty fields failed browser validation (`checkValidity()` was false) and an empty POST returned the same invalid-credentials message. After five attempts, the correct password returned “Too many login attempts. Try again later.” Logout from `/admin/email-logs` returned to `/admin/login` after the logout form was posted to `/admin`. The `platform_admin` cookie is `HttpOnly`, `SameSite=Lax`, `Path=/admin`, `Max-Age=43200`. `document.cookie` was empty while logged in. A session whose `expiresAt` was set in the past redirected to login. |
+| Dashboard | PASS | Before fixture data, every count was 0. After local fixtures, the page showed 10 installed shops, 9 active shops, 1 review, 0 approved, 1 pending, 0 rejected, 12 review requests, 2 accepted emails, and 1 failed email. |
+| SMTP settings | PASS | The page showed host, port, username, password, STARTTLS/TLS, from name, from email, reply-to, and enabled. Local mock values were saved. After reload the password field was empty and its placeholder was `---`. |
+| SMTP security | PASS | Reloaded HTML did not contain the SMTP password. The database value has three ciphertext parts and does not contain the plaintext password. Audit metadata and the dev-server log did not contain the admin or SMTP passwords. |
+| SMTP connection | PASS | The valid mock returned “SMTP connection successful.” A closed local port returned “SMTP authentication failed.” with no stack trace and no credential. |
+| Test email | PASS | `tester@example.com` was recorded as `ACCEPTED` with recipient `t***@example.com`. `reject-me@example.com` was recorded as `FAILED` with a sanitized recipient rejection. Both wrote `SMTP_TEST_EMAIL` audit events. |
+| Templates | PASS | All six seeded templates rendered with subject, HTML, text, and enabled checked. Preview of `REVIEW_REQUEST` substituted shop, customer, product, review URL, and unsubscribe URL. `Avery <Customer>` rendered as `Avery &lt;Customer&gt;` inside a sandboxed iframe. A saved `<script>alert(1)</script>` was removed from the stored HTML. The original approved template was restored. |
+| Email logs | PARTIAL | The page showed `ACCEPTED`, `FAILED`, `RETRYING`, and `EXPIRED` with masked recipients and no password. `QUEUED` and `PROCESSING` were not visible because the worker moves those rows to a final status before the page is opened. |
+| Audit log | PASS | The page and database included `ADMIN_LOGIN`, `ADMIN_LOGOUT`, `ADMIN_LOGIN_FAILED`, `SMTP_CREATED`, `SMTP_UPDATED`, `SMTP_TEST`, `SMTP_TEST_EMAIL`, and `EMAIL_TEMPLATE_UPDATED`. Metadata did not contain passwords. |
+| System page | PASS | It showed database `ok`, SMTP encryption key `configured`, and object storage `not configured`. It did not show the encryption key, SMTP password, session secret, Shopify API secret, or database password. |
+| Unsubscribe | PARTIAL | A valid token showed “Unsubscribed” and created a `review_request` opt-out. The next scheduled request for that customer was `CANCELLED`. An unknown token returned HTTP 410 and a generic support message. An expired token returned HTTP 200 and the same confirmation page; it was not rejected. |
+| Worker | PASS | The eligible local request became `SENT` with one `ACCEPTED` delivery to `b***@example.com`. Running the worker again did not create a second accepted delivery. Already reviewed, opted out, uninstalled, and missing product requests became `CANCELLED`. The expired request and its queued delivery became `EXPIRED`. Missing recipient and invalid token became `FAILED`. With the mock stopped, a new request became `RETRYING` with retry count 1 and a later `scheduledAt`. |
+| Security | PASS | Unauthenticated and invalid-session requests to admin pages returned HTTP 302 to login. A missing CSRF token and another session’s CSRF token returned HTTP 403. A malformed SMTP post returned “Check the SMTP settings and try again.” A password value containing a SQL statement stayed ciphertext and `SmtpConfiguration` was still readable afterward. |
+| Regression | PASS | `npm test` (41), `npm run typecheck`, `npm run lint`, `npm run build`, `npx prisma validate`, `npx prisma generate`, and `shopify app build` passed. The first `prisma generate` in the same run failed with `EPERM` while the dev server had the query engine open; it passed after that process was stopped. |
+
+Logout from a child admin route initially returned HTTP 405 because the form posted to the child route. The logout form now posts to `/admin`, and the retest reached the login page.
+
+Production VPS `187.124.157.194` was not contacted. Production Nginx, Docker, databases, and SMTP were not modified. No production email was sent.
