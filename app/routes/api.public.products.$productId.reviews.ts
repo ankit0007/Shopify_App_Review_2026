@@ -4,6 +4,7 @@ import {decodePublicCursor, encodePublicCursor, verifyAppProxySignature} from '.
 import {config} from '../config.server';
 import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
 import {reviewSubmissionSchema} from '../modules/reviews/review.schema';
+import {PlanService} from '../modules/plans/plan.service.server';
 
 export async function loader({params, request}: {params: {productId?: string}; request: Request}) {
   const rate = consumeRateLimit(`public-reviews:${requestClientKey(request)}`, 60, 60_000);
@@ -35,7 +36,8 @@ export async function loader({params, request}: {params: {productId?: string}; r
   });
   if (!product) return ok({reviews: [], nextCursor: null});
 
-  const reviews = await db.review.findMany({
+  const [reviews, aggregate] = await Promise.all([
+    db.review.findMany({
     where: {productId: product.id, status: 'APPROVED'},
     orderBy: {submittedAt: 'desc'},
     take: limit + 1,
@@ -50,7 +52,13 @@ export async function loader({params, request}: {params: {productId?: string}; r
       submittedAt: true,
       media: {where: {approved: true}, select: {type: true}},
     },
-  });
+    }),
+    db.review.aggregate({
+      where: {productId: product.id, status: 'APPROVED'},
+      _avg: {rating: true},
+      _count: {_all: true},
+    }),
+  ]);
   const hasMore = reviews.length > limit;
   const items = hasMore ? reviews.slice(0, limit) : reviews;
   return ok({
@@ -59,6 +67,8 @@ export async function loader({params, request}: {params: {productId?: string}; r
       submittedAt: review.submittedAt.toISOString(),
     })),
     nextCursor: hasMore && items.at(-1) ? encodePublicCursor(items.at(-1)!.id) : null,
+    averageRating: aggregate._avg.rating ?? 0,
+    totalReviews: aggregate._count._all,
   });
 }
 
@@ -71,6 +81,10 @@ export async function action({params, request}: {params: {productId?: string}; r
     });
   }
   const url = new URL(request.url);
+  const contentLength = Number(request.headers.get('content-length') ?? 0);
+  if (contentLength > 64_000) {
+    return fail('PAYLOAD_TOO_LARGE', 'Review submission is too large', 413);
+  }
   if (!verifyAppProxySignature(url, config.SHOPIFY_API_SECRET)) {
     return fail('INVALID_SIGNATURE', 'Request signature is invalid', 401);
   }
@@ -90,12 +104,14 @@ export async function action({params, request}: {params: {productId?: string}; r
 
   const shop = await db.shop.findUnique({where: {shopDomain}, select: {id: true}});
   if (!shop) return fail('SHOP_NOT_INSTALLED', 'This shop has not installed the app', 404);
-  const productTitle = String(form.get('productTitle') || 'Product').slice(0, 200);
-  const product = await db.product.upsert({
+  const plan = new PlanService();
+  const reviewLimit = await plan.checkLimit(shop.id, 'reviews');
+  if (!reviewLimit.allowed) return fail('PLAN_LIMIT_REACHED', 'This shop has reached its review limit', 402);
+  const product = await db.product.findUnique({
     where: {shopId_shopifyProductId: {shopId: shop.id, shopifyProductId: productId}},
-    update: {title: productTitle},
-    create: {shopId: shop.id, shopifyProductId: productId, title: productTitle},
+    select: {id: true},
   });
+  if (!product) return fail('PRODUCT_NOT_SYNCED', 'This product is not available yet', 404);
   await db.review.create({
     data: {
       shopId: shop.id,
@@ -107,5 +123,6 @@ export async function action({params, request}: {params: {productId?: string}; r
       status: 'PENDING',
     },
   });
+  await plan.increment(shop.id, 'reviews');
   return ok({status: 'PENDING'});
 }

@@ -6,6 +6,7 @@ import {fail} from '../lib/api.server';
 import {submitReview} from '../modules/reviews/review.service.server';
 import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
 import {isSameOrigin} from '../lib/csrf.server';
+import {attachReviewMedia} from '../modules/media/media.service.server';
 
 export function headers() {
   return {'X-Robots-Tag': 'noindex, nofollow, noarchive'};
@@ -18,9 +19,18 @@ export async function loader({params}: {params: {token?: string}}) {
     where: {tokenHash: hashToken(token)},
     include: {product: true},
   });
-  if (!request || request.expiresAt && request.expiresAt < new Date() || ['CANCELLED', 'SUBMITTED'].includes(request.status)) {
+  if (!request || request.expiresAt && request.expiresAt < new Date() || ['CANCELLED', 'SUBMITTED', 'EXPIRED'].includes(request.status)) {
     throw new Response('This review link has expired.', {status: 410});
   }
+  await db.$transaction([
+    db.reviewRequest.updateMany({
+      where: {id: request.id, status: {in: ['SENT', 'SCHEDULED']}},
+      data: {status: 'OPENED'},
+    }),
+    db.reviewEvent.create({
+      data: {shopId: request.shopId, reviewRequestId: request.id, action: 'OPENED'},
+    }),
+  ]);
   return {productTitle: request.product?.title ?? 'your purchase', token};
 }
 
@@ -36,9 +46,12 @@ export async function action({request, params}: {request: Request; params: {toke
   if (!reviewRequest || !reviewRequest.productId || reviewRequest.expiresAt && reviewRequest.expiresAt < new Date() || ['CANCELLED', 'SUBMITTED'].includes(reviewRequest.status)) {
     return fail('EXPIRED_TOKEN', 'This review link has expired.', 410);
   }
+  await db.reviewEvent.create({
+    data: {shopId: reviewRequest.shopId, reviewRequestId: reviewRequest.id, action: 'CLICKED'},
+  });
   const formData = await request.formData();
   try {
-    await submitReview({
+    const review = await submitReview({
       shopId: reviewRequest.shopId,
       reviewRequestId: reviewRequest.id,
       productId: reviewRequest.productId!,
@@ -51,6 +64,10 @@ export async function action({request, params}: {request: Request; params: {toke
         displayName: String(formData.get('displayName') ?? ''),
       },
     });
+    const files = formData.getAll('media').filter((value): value is File => value instanceof File && value.size > 0);
+    if (files.length) {
+      await attachReviewMedia({shopId: reviewRequest.shopId, reviewId: review.id, files});
+    }
     return {success: true};
   } catch {
     return fail('INVALID_REVIEW', 'Please check your review and try again.');
@@ -64,12 +81,13 @@ export default function ReviewPage() {
     <Page title={`Review ${productTitle}`}>
       {result && 'success' in result && result.success ? <Banner tone="success">Thank you for sharing your review.</Banner> : null}
       <Card>
-        <Form method="post">
+        <Form method="post" encType="multipart/form-data">
           <FormLayout>
             <Select label="Rating" name="rating" options={[1, 2, 3, 4, 5].map((value) => ({label: `${value} star${value === 1 ? '' : 's'}`, value: String(value)}))} />
             <TextField label="Title" name="title" autoComplete="off" />
             <TextField label="Review" name="body" multiline={5} autoComplete="off" />
             <TextField label="Display name" name="displayName" autoComplete="name" />
+            <input type="file" name="media" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple />
             <Button submit variant="primary">Submit review</Button>
           </FormLayout>
         </Form>

@@ -14,5 +14,26 @@ export async function collectCustomerData(shopId: string, shopifyCustomerId: str
 }
 
 export async function eraseCustomerData(shopId: string, shopifyCustomerId: string) {
-  return db.customer.deleteMany({where: {shopId, shopifyCustomerId}});
+  const customer = await db.customer.findFirst({
+    where: {shopId, shopifyCustomerId},
+    select: {id: true},
+  });
+  if (!customer) return {customerDeleted: 0, reviewsAnonymized: 0, requestsDeleted: 0};
+  return db.$transaction(async (tx) => {
+    const reviews = await tx.review.updateMany({
+      where: {shopId, customerId: customer.id},
+      data: {
+        customerId: null,
+        displayName: 'Customer',
+        orderId: null,
+        verificationReason: 'Customer data redacted',
+      },
+    });
+    const requests = await tx.reviewRequest.deleteMany({
+      where: {shopId, customerId: customer.id},
+    });
+    await tx.consent.deleteMany({where: {shopId, customerId: customer.id}});
+    const deleted = await tx.customer.deleteMany({where: {id: customer.id}});
+    return {customerDeleted: deleted.count, reviewsAnonymized: reviews.count, requestsDeleted: requests.count};
+  });
 }

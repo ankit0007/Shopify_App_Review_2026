@@ -15,12 +15,17 @@ const envSchema = z.object({
   STORAGE_BUCKET: z.string().min(1).optional(),
   STORAGE_ACCESS_KEY: z.string().min(1).optional(),
   STORAGE_SECRET_KEY: z.string().min(1).optional(),
+  STORAGE_PUBLIC_ENDPOINT: z.string().url().optional(),
   EMAIL_PROVIDER: z.string().default('disabled'),
   EMAIL_API_KEY: z.string().optional(),
+  EMAIL_API_URL: z.string().url().optional(),
   EMAIL_FROM: z.string().email().optional(),
   SHOPIFY_PARTNER_ORG_ID: z.string().optional(),
   SHOPIFY_PARTNER_API_TOKEN: z.string().optional(),
   SHOPIFY_APP_ID: z.string().optional(),
+  SHOPIFY_PLAN_STARTER_PRICE: z.coerce.number().positive().optional(),
+  SHOPIFY_PLAN_GROWTH_PRICE: z.coerce.number().positive().optional(),
+  SHOPIFY_PLAN_PRO_PRICE: z.coerce.number().positive().optional(),
 });
 
 export const config = envSchema.parse({

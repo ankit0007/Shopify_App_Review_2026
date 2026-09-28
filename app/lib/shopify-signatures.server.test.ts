@@ -1,6 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {describe, expect, it} from 'vitest';
-import {verifyAppProxySignature} from './shopify-signatures.server';
+import {decodePublicCursor, encodePublicCursor, verifyAppProxySignature} from './shopify-signatures.server';
 
 describe('Shopify App Proxy signatures', () => {
   it('accepts a valid canonical query signature', () => {
@@ -18,5 +18,11 @@ describe('Shopify App Proxy signatures', () => {
     url.searchParams.set('signature', '0'.repeat(64));
     url.searchParams.set('timestamp', '1710000000');
     expect(verifyAppProxySignature(url, 'proxy-secret')).toBe(false);
+  });
+
+  it('only accepts cursors that decode to an internal identifier', () => {
+    const cursor = encodePublicCursor('cm1234567890123456789012');
+    expect(decodePublicCursor(cursor)).toBe('cm1234567890123456789012');
+    expect(decodePublicCursor('not-valid')).toBeNull();
   });
 });

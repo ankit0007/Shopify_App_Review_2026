@@ -11,6 +11,7 @@ datasource db {
 enum ReviewRequestStatus {
   PENDING
   SCHEDULED
+  SENDING
   SENT
   OPENED
   CLICKED
@@ -134,6 +135,7 @@ model Customer {
   shopId            String
   shop              Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopifyCustomerId String?
+  emailEncrypted    String?
   emailHash         String?
   displayName       String?
   createdAt         DateTime        @default(now())
@@ -207,6 +209,7 @@ model ReviewRequest {
   productId     String?
   product       Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
   tokenHash     String              @unique
+  tokenEncrypted String
   status        ReviewRequestStatus @default(PENDING)
   scheduledAt   DateTime?
   sentAt        DateTime?
@@ -409,6 +412,7 @@ model PrivacyRequest {
   shop              Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   topic             String
   customerShopifyId String?
+  data              Json?
   status            String    @default("RECEIVED")
   processedAt       DateTime?
   createdAt         DateTime  @default(now())

@@ -8,7 +8,7 @@ This repository is a production-oriented foundation and vertical slice. Shopify 
 
 ## Stack
 
-- TypeScript, Node.js 20+, React Router, Polaris, App Bridge
+- TypeScript, Node.js 22+, React Router, Polaris, App Bridge
 - PostgreSQL and Prisma
 - Shopify managed installation/token exchange and GraphQL Admin API
 - Shopify App Pricing for new public-app plans

@@ -1,1 +1,11 @@
-{}
+{
+  "name": "Review widgets",
+  "blocks": {
+    "review_summary": {
+      "name": "Review summary"
+    },
+    "review_embed": {
+      "name": "Reviews and write form"
+    }
+  }
+}

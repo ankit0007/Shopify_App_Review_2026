@@ -7,6 +7,9 @@ export const links: LinksFunction = () => [{rel: 'stylesheet', href: polarisStyl
 export const headers = () => ({
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "frame-ancestors https://admin.shopify.com https://*.myshopify.com;",
+  'Cache-Control': 'no-store',
 });
 
 export default function App() {

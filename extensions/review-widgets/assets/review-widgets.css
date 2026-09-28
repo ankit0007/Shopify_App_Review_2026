@@ -44,6 +44,20 @@
   cursor: pointer;
 }
 
+.shopify-review-widget__picker-stars button:focus-visible,
+.shopify-review-widget__write-link:focus-visible,
+.shopify-review-widget__form button[type="submit"]:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.shopify-review-widget__write-link {
+  display: inline-block;
+  margin-top: .75rem;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .shopify-review-widget__item h3,
 .shopify-review-widget__item p {
   margin: .25rem 0;

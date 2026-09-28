@@ -12,6 +12,7 @@ export async function verifyPurchase(input: {
       productId: input.productId,
       order: {
         shopId: input.shopId,
+        status: 'fulfilled',
         ...(input.customerId ? {customerId: input.customerId} : {}),
       },
     },

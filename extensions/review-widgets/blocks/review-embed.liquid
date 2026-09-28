@@ -8,16 +8,16 @@
   <h2 class="shopify-review-widget__title">Customer reviews</h2>
   <p class="shopify-review-widget__summary" data-review-summary>No reviews yet</p>
   <div class="shopify-review-widget__list" data-review-list></div>
-  <form class="shopify-review-widget__form" data-review-form method="post" action="/apps/shopify-review/products/{{ product.id }}/reviews">
+  <form id="shopify-review-form-{{ product.id }}" class="shopify-review-widget__form" data-review-form method="post" action="/apps/shopify-review/products/{{ product.id }}/reviews">
     <h3>Write a review</h3>
     <div class="shopify-review-widget__picker" data-star-picker>
       <span class="shopify-review-widget__picker-label">Your rating</span>
       <div class="shopify-review-widget__picker-stars" role="radiogroup" aria-label="Rating">
-        <button type="button" data-value="1" aria-label="1 star">★</button>
-        <button type="button" data-value="2" aria-label="2 stars">★</button>
-        <button type="button" data-value="3" aria-label="3 stars">★</button>
-        <button type="button" data-value="4" aria-label="4 stars">★</button>
-        <button type="button" data-value="5" aria-label="5 stars">★</button>
+        <button type="button" role="radio" data-value="1" aria-label="1 star">★</button>
+        <button type="button" role="radio" data-value="2" aria-label="2 stars">★</button>
+        <button type="button" role="radio" data-value="3" aria-label="3 stars">★</button>
+        <button type="button" role="radio" data-value="4" aria-label="4 stars">★</button>
+        <button type="button" role="radio" data-value="5" aria-label="5 stars">★</button>
       </div>
       <input type="hidden" name="rating" value="5">
     </div>
@@ -31,7 +31,7 @@
     </label>
     <input name="productTitle" type="hidden" value="{{ product.title | escape }}">
     <button type="submit">Submit review</button>
-    <p data-review-message></p>
+    <p data-review-message role="status" aria-live="polite"></p>
   </form>
 </section>
 {% endif %}
@@ -42,6 +42,13 @@
   "target": "body",
   "javascript": "review-widgets.js",
   "stylesheet": "review-widgets.css",
-  "settings": []
+  "settings": [
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#f5b301"
+    }
+  ]
 }
 {% endschema %}

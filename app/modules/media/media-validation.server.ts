@@ -39,7 +39,12 @@ export function hasAllowedSignature(contentType: string, bytes: Uint8Array) {
       bytes.slice(0, 8).every((value, index) => value === [137, 80, 78, 71, 13, 10, 26, 10][index]);
   }
   if (contentType === 'image/jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8;
-  if (contentType === 'image/webp') return new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF';
-  if (contentType === 'video/mp4') return new TextDecoder().decode(bytes.slice(4, 8)) === 'ftyp';
+  if (contentType === 'image/webp') {
+    return new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF' &&
+      new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP';
+  }
+  if (contentType === 'video/mp4' || contentType === 'video/quicktime') {
+    return new TextDecoder().decode(bytes.slice(4, 8)) === 'ftyp';
+  }
   return false;
 }

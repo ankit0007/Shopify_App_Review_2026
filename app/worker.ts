@@ -1,37 +1,82 @@
 import {db} from './db.server';
+import {config} from './config.server';
+import {decryptData} from './lib/encrypted-data.server';
 import {syncOrderWebhook, type ShopifyOrderPayload} from './modules/commerce/sync.service.server';
-import {DisabledEmailService} from './modules/email/email.service.server';
+import {createEmailService} from './modules/email/email.service.server';
 
 /**
  * Worker entrypoint. A production deployment should run this process under a
  * supervisor and connect the polling hooks to Redis/BullMQ or another durable
  * queue. Work is intentionally idempotent and never runs in a request.
  */
-async function processDueReviewRequests() {
-  const emailService = new DisabledEmailService();
+export async function processDueReviewRequests(now = new Date()) {
+  const emailService = createEmailService();
+  const reminderCandidates = await db.reviewRequest.findMany({
+    where: {
+      status: {in: ['SENT', 'OPENED']},
+      sentAt: {not: null, lte: new Date(now.getTime() - 86_400_000)},
+      expiresAt: {gt: now},
+    },
+    include: {shop: {include: {settings: true}}},
+    take: 100,
+  });
+  for (const request of reminderCandidates) {
+    const settings = request.shop.settings;
+    if (!settings || request.reminderCount >= settings.maxReminders) continue;
+    const dueAt = new Date(request.sentAt!.getTime() + settings.reminderDelayDays * 86_400_000);
+    if (dueAt > now) continue;
+    await db.reviewRequest.updateMany({
+      where: {id: request.id, status: {in: ['SENT', 'OPENED']}, reminderCount: request.reminderCount},
+      data: {status: 'SCHEDULED', scheduledAt: now, reminderCount: {increment: 1}},
+    });
+  }
+  await db.reviewRequest.updateMany({
+    where: {status: {in: ['SCHEDULED', 'SENT']}, expiresAt: {lt: now}},
+    data: {status: 'EXPIRED'},
+  });
   const due = await db.reviewRequest.findMany({
-    where: {status: 'SCHEDULED', scheduledAt: {lte: new Date()}},
+    where: {status: 'SCHEDULED', scheduledAt: {lte: now}},
+    include: {customer: true, product: true},
     take: 100,
   });
   for (const request of due) {
+    const claimed = await db.reviewRequest.updateMany({
+      where: {id: request.id, status: 'SCHEDULED'},
+      data: {status: 'SENDING'},
+    });
+    if (claimed.count !== 1) continue;
     try {
-      // Customer email delivery is intentionally blocked until a configured
-      // provider and consent-safe recipient lookup are available.
-      await emailService.send({
-        to: '',
-        subject: 'Review request',
-        html: '',
+      if (!request.customer?.emailEncrypted || !request.tokenEncrypted) {
+        throw new Error('Review request has no deliverable recipient or token');
+      }
+      const recipient = decryptData(request.customer.emailEncrypted);
+      const token = decryptData(request.tokenEncrypted);
+      const provider = await emailService.send({
+        to: recipient,
+        subject: `How was your ${request.product?.title ?? 'purchase'}?`,
+        html: `<p>We would love your feedback on ${request.product?.title ?? 'your purchase'}.</p><p><a href="${config.SHOPIFY_APP_URL}/review/${encodeURIComponent(token)}">Share your review</a></p>`,
       });
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SCHEDULED'},
-        data: {status: 'SENT', sentAt: new Date()},
+        where: {id: request.id, status: 'SENDING'},
+        data: {status: 'SENT', sentAt: now},
+      });
+      await db.emailEvent.create({
+        data: {shopId: request.shopId, reviewRequestId: request.id, eventType: 'SENT', providerId: provider.providerId},
       });
     } catch (error) {
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SCHEDULED'},
+        where: {id: request.id, status: 'SENDING'},
         data: {
           status: 'FAILED',
           lastError: error instanceof Error ? error.message : 'Email delivery unavailable',
+        },
+      });
+      await db.emailEvent.create({
+        data: {
+          shopId: request.shopId,
+          reviewRequestId: request.id,
+          eventType: 'FAILED',
+          errorCode: error instanceof Error ? error.message : 'EMAIL_DELIVERY_FAILED',
         },
       });
     }

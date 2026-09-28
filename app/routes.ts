@@ -11,6 +11,7 @@ export default [
   route('app', 'routes/app.tsx', [
     index('routes/app._index.tsx'),
     route('reviews', 'routes/app.reviews.tsx'),
+    route('requests', 'routes/app.requests.tsx'),
     route('settings', 'routes/app.settings.tsx'),
     route('plan-usage', 'routes/app.plan-usage.tsx'),
   ]),

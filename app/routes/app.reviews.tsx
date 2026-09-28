@@ -6,10 +6,20 @@ import {moderateReview} from '../modules/reviews/moderation.service.server';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status');
+  const rating = Number(url.searchParams.get('rating') ?? 0);
+  const search = url.searchParams.get('q')?.trim();
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
   const reviews = shop
     ? await db.review.findMany({
-      where: {shopId: shop.id, deletedAt: null},
+      where: {
+        shopId: shop.id,
+        deletedAt: null,
+        ...(status && ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN'].includes(status) ? {status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN'} : {}),
+        ...(rating >= 1 && rating <= 5 ? {rating} : {}),
+        ...(search ? {OR: [{body: {contains: search, mode: 'insensitive'}}, {displayName: {contains: search, mode: 'insensitive'}}, {product: {title: {contains: search, mode: 'insensitive'}}}]} : {}),
+      },
       orderBy: {submittedAt: 'desc'},
       take: 50,
       select: {
@@ -22,7 +32,7 @@ export async function loader({request}: {request: Request}) {
       },
     })
     : [];
-  return {reviews};
+  return {reviews, filters: {status: status ?? '', rating: rating ? String(rating) : '', search: search ?? ''}};
 }
 
 export async function action({request}: {request: Request}) {
@@ -31,8 +41,12 @@ export async function action({request}: {request: Request}) {
   const form = await request.formData();
   const reviewId = String(form.get('reviewId') ?? '');
   const decision = form.get('decision');
-  if (shop && reviewId && (decision === 'APPROVE' || decision === 'REJECT')) {
-    await moderateReview({shopId: shop.id, reviewId, action: decision});
+  if (shop && reviewId && ['APPROVE', 'REJECT', 'HIDE', 'DELETE', 'FEATURE'].includes(String(decision))) {
+    await moderateReview({
+      shopId: shop.id,
+      reviewId,
+      action: decision as 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE',
+    });
   }
   return null;
 }
@@ -54,9 +68,26 @@ const statusColor: Record<string, {color: string; background: string}> = {
 };
 
 export default function Reviews() {
-  const {reviews} = useLoaderData<typeof loader>();
+  const {reviews, filters} = useLoaderData<typeof loader>();
   return (
     <Page title="Reviews">
+      <Form method="get">
+        <InlineStack gap="200" wrap>
+          <input name="q" defaultValue={filters.search} placeholder="Search reviews or products" />
+          <select name="status" defaultValue={filters.status} aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="HIDDEN">Hidden</option>
+          </select>
+          <select name="rating" defaultValue={filters.rating} aria-label="Filter by rating">
+            <option value="">All ratings</option>
+            {[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} stars</option>)}
+          </select>
+          <button type="submit" style={filterButton}>Filter</button>
+        </InlineStack>
+      </Form>
       {reviews.length === 0 ? (
         <EmptyState heading="No reviews yet" image="" fullWidth>
           Customer reviews from the product page will appear here. Approve a review to show it on the storefront.
@@ -83,6 +114,16 @@ export default function Reviews() {
                       <InlineStack gap="200">
                         <button type="submit" name="decision" value="APPROVE" style={approveButton}>Approve</button>
                         <button type="submit" name="decision" value="REJECT" style={rejectButton}>Disapprove</button>
+                      </InlineStack>
+                    </Form>
+                  ) : null}
+                  {review.status !== 'DELETED' ? (
+                    <Form method="post">
+                      <input type="hidden" name="reviewId" value={review.id} />
+                      <InlineStack gap="200">
+                        <button type="submit" name="decision" value="FEATURE" style={secondaryButton}>Feature</button>
+                        <button type="submit" name="decision" value="HIDE" style={secondaryButton}>Hide</button>
+                        <button type="submit" name="decision" value="DELETE" style={deleteButton}>Delete</button>
                       </InlineStack>
                     </Form>
                   ) : null}
@@ -115,3 +156,16 @@ const rejectButton = {
   fontWeight: 700,
   cursor: 'pointer',
 };
+
+const secondaryButton = {
+  padding: '7px 12px',
+  border: '1px solid #9ca3af',
+  borderRadius: 8,
+  background: '#fff',
+  color: '#374151',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const deleteButton = {...secondaryButton, borderColor: '#991b1b', color: '#991b1b'};
+const filterButton = {...approveButton, background: '#1d4ed8'};

@@ -22,36 +22,44 @@
       return row;
     }
 
-    function render(reviews) {
+    function render(reviews, averageValue, totalValue) {
       if (!list) return;
       list.replaceChildren();
       if (!reviews.length) {
         if (summary) summary.textContent = 'No reviews yet';
         return;
       }
-      const average = reviews.reduce((total, review) => total + review.rating, 0) / reviews.length;
+      const average = Number.isFinite(averageValue)
+        ? averageValue
+        : reviews.reduce((total, review) => total + review.rating, 0) / reviews.length;
       if (summary) {
         summary.replaceChildren();
         summary.append(stars(Math.round(average)));
         const count = document.createElement('span');
-        count.textContent = `${average.toFixed(1)} out of 5 · ${reviews.length} review${reviews.length === 1 ? '' : 's'}`;
+        const total = Number.isFinite(totalValue) ? totalValue : reviews.length;
+        count.textContent = `${average.toFixed(1)} out of 5 · ${total} review${total === 1 ? '' : 's'}`;
         summary.append(count);
       }
       reviews.forEach((review) => {
         const item = document.createElement('article');
         item.className = 'shopify-review-widget__item';
         const title = document.createElement('h3');
-        title.textContent = review.displayName || 'Customer';
+        title.textContent = review.title || review.displayName || 'Customer';
+        if (review.title && review.displayName) {
+          title.title = review.displayName;
+        }
         const body = document.createElement('p');
         body.textContent = review.body;
-        item.append(stars(Number(review.rating) || 0), title, body);
+        const meta = document.createElement('small');
+        meta.textContent = `${review.displayName || 'Customer'}${review.verifiedPurchase ? ' · Verified purchase' : ''}${review.submittedAt ? ` · ${new Date(review.submittedAt).toLocaleDateString()}` : ''}`;
+        item.append(stars(Number(review.rating) || 0), title, meta, body);
         list.append(item);
       });
     }
 
     fetch(`${endpoint}?limit=10`)
       .then((response) => response.ok ? response.json() : Promise.reject(new Error('Review API unavailable')))
-      .then((payload) => render(payload.data?.reviews ?? []))
+      .then((payload) => render(payload.data?.reviews ?? [], payload.data?.averageRating, payload.data?.totalReviews))
       .catch(() => {
         if (summary) summary.textContent = 'No reviews yet';
       });
@@ -64,6 +72,7 @@
           const value = Number(button.dataset.value);
           button.classList.toggle('is-filled', value <= rating);
           button.setAttribute('aria-checked', value === rating ? 'true' : 'false');
+          button.tabIndex = value === rating ? 0 : -1;
         });
       };
       paint(Number(input?.value) || 5);
@@ -71,6 +80,16 @@
         button.addEventListener('click', () => {
           if (input) input.value = button.dataset.value;
           paint(Number(button.dataset.value));
+        });
+        button.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const current = Number(input?.value) || 5;
+          const next = event.key === 'Home' ? 1 : event.key === 'End' ? 5 :
+            Math.min(5, Math.max(1, current + (event.key === 'ArrowRight' ? 1 : -1)));
+          if (input) input.value = String(next);
+          paint(next);
+          buttons[next - 1]?.focus();
         });
       });
     });
