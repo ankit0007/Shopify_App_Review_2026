@@ -7,6 +7,7 @@ import {PrismaSessionStorage} from '@shopify/shopify-app-session-storage-prisma'
 import type {ApiVersion} from '@shopify/shopify-api';
 import {db} from './db.server';
 import {config, shopifyScopes} from './config.server';
+import {ensureShop} from './lib/ensure-shop.server';
 
 const shopify = shopifyApp({
   apiKey: config.SHOPIFY_API_KEY,
@@ -19,16 +20,7 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(db),
   hooks: {
     afterAuth: async ({session}) => {
-      const shop = await db.shop.upsert({
-        where: {shopDomain: session.shop},
-        update: {uninstalledAt: null},
-        create: {shopDomain: session.shop},
-      });
-      await db.shopSettings.upsert({
-        where: {shopId: shop.id},
-        update: {},
-        create: {shopId: shop.id},
-      });
+      await ensureShop(session.shop);
     },
   },
   webhooks: {
