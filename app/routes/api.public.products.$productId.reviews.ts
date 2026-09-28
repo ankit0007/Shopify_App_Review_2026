@@ -1,8 +1,9 @@
 import {db} from '../db.server';
-import {ok} from '../lib/api.server';
+import {fail, ok} from '../lib/api.server';
 import {decodePublicCursor, encodePublicCursor, verifyAppProxySignature} from '../lib/shopify-signatures.server';
 import {config} from '../config.server';
 import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
+import {reviewSubmissionSchema} from '../modules/reviews/review.schema';
 
 export async function loader({params, request}: {params: {productId?: string}; request: Request}) {
   const rate = consumeRateLimit(`public-reviews:${requestClientKey(request)}`, 60, 60_000);
@@ -59,4 +60,52 @@ export async function loader({params, request}: {params: {productId?: string}; r
     })),
     nextCursor: hasMore && items.at(-1) ? encodePublicCursor(items.at(-1)!.id) : null,
   });
+}
+
+export async function action({params, request}: {params: {productId?: string}; request: Request}) {
+  const rate = consumeRateLimit(`public-review-submit:${requestClientKey(request)}`, 10, 60_000);
+  if (!rate.allowed) {
+    return Response.json({success: false, error: {code: 'RATE_LIMITED', message: 'Too many requests'}}, {
+      status: 429,
+      headers: {'Retry-After': String(rate.retryAfterSeconds)},
+    });
+  }
+  const url = new URL(request.url);
+  if (!verifyAppProxySignature(url, config.SHOPIFY_API_SECRET)) {
+    return fail('INVALID_SIGNATURE', 'Request signature is invalid', 401);
+  }
+  const shopDomain = url.searchParams.get('shop') ?? '';
+  const productId = params.productId;
+  if (!productId || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shopDomain)) {
+    return fail('INVALID_REQUEST', 'Shop and product are required');
+  }
+  const form = await request.formData();
+  const parsed = reviewSubmissionSchema.safeParse({
+    rating: form.get('rating'),
+    title: form.get('title') || undefined,
+    body: form.get('body'),
+    displayName: form.get('displayName') || undefined,
+  });
+  if (!parsed.success) return fail('INVALID_REVIEW', 'Enter a rating and a review');
+
+  const shop = await db.shop.findUnique({where: {shopDomain}, select: {id: true}});
+  if (!shop) return fail('SHOP_NOT_INSTALLED', 'This shop has not installed the app', 404);
+  const productTitle = String(form.get('productTitle') || 'Product').slice(0, 200);
+  const product = await db.product.upsert({
+    where: {shopId_shopifyProductId: {shopId: shop.id, shopifyProductId: productId}},
+    update: {title: productTitle},
+    create: {shopId: shop.id, shopifyProductId: productId, title: productTitle},
+  });
+  await db.review.create({
+    data: {
+      shopId: shop.id,
+      productId: product.id,
+      rating: parsed.data.rating,
+      title: parsed.data.title,
+      body: parsed.data.body,
+      displayName: parsed.data.displayName,
+      status: 'PENDING',
+    },
+  });
+  return ok({status: 'PENDING'});
 }

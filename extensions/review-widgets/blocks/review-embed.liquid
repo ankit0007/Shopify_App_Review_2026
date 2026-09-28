@@ -1,3 +1,4 @@
+{% if product %}
 <section
   class="shopify-review-widget"
   data-product-id="{{ product.id }}"
@@ -33,11 +34,12 @@
     <p data-review-message></p>
   </form>
 </section>
+{% endif %}
 
 {% schema %}
 {
-  "name": "Customer reviews",
-  "target": "section",
+  "name": "Customer reviews embed",
+  "target": "body",
   "javascript": "review-widgets.js",
   "stylesheet": "review-widgets.css",
   "settings": []

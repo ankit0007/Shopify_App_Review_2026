@@ -1,12 +1,90 @@
-.shopify-review-summary {
-  display: inline-flex;
-  gap: .5rem;
-  align-items: center;
+.shopify-review-widget {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   color: #111827;
-  font-size: .95rem;
+  background: #fff;
 }
 
-.shopify-review-summary [aria-hidden="true"] {
-  color: #f59e0b;
-  letter-spacing: .1em;
+.shopify-review-widget__title {
+  margin: 0 0 .5rem;
+  font-size: 1.5rem;
+}
+
+.shopify-review-widget__summary {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0 0 1rem;
+}
+
+.shopify-review-widget__stars,
+.shopify-review-widget__picker-stars {
+  display: inline-flex;
+  gap: .15rem;
+  color: #d1d5db;
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.shopify-review-widget__stars .is-filled,
+.shopify-review-widget__picker-stars .is-filled {
+  color: #f5b301;
+}
+
+.shopify-review-widget__picker-stars button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shopify-review-widget__item h3,
+.shopify-review-widget__item p {
+  margin: .25rem 0;
+}
+
+.shopify-review-widget__list {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.shopify-review-widget__item {
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.shopify-review-widget__form {
+  display: grid;
+  gap: .75rem;
+}
+
+.shopify-review-widget__form label {
+  display: grid;
+  gap: .25rem;
+}
+
+.shopify-review-widget__form input,
+.shopify-review-widget__form select,
+.shopify-review-widget__form textarea {
+  width: 100%;
+  padding: .5rem .75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.shopify-review-widget__form button[type="submit"] {
+  justify-self: start;
+  padding: .6rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  cursor: pointer;
 }

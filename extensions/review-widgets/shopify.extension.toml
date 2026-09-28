@@ -1,10 +1,4 @@
 name = "Review widgets"
 type = "theme"
-
-[settings]
-
-[[settings]]
-id = "reviews_per_page"
-type = "number"
-name = "Reviews per page"
-default = 10
+handle = "review-widgets"
+uid = "4e8d70f4-fb4d-535b-631b-ae0b8eab75525a37699a"
