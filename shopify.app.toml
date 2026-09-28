@@ -1,4 +1,5 @@
-name = "Shopify Review"
+name = "Product Reviews"
+client_id = "b3aa63efab132571c2c9f2de3a8dbb6c"
 application_url = "https://shopifyreview.it3.in"
 embedded = true
 

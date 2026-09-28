@@ -7,7 +7,6 @@ export const links: LinksFunction = () => [{rel: 'stylesheet', href: polarisStyl
 export const headers = () => ({
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'SAMEORIGIN',
 });
 
 export default function App() {

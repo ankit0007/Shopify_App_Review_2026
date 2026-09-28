@@ -19,7 +19,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
 
-RUN groupadd --system --gid 1001 app \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 app \
   && useradd --system --uid 1001 --gid app app
 
 COPY --from=build --chown=app:app /app/package*.json ./
