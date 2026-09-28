@@ -24,7 +24,7 @@ export default function PlatformAdminLayout() {
     <main style={{fontFamily: 'sans-serif', margin: '1.5rem'}}>
       <header style={{display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center'}}>
         <strong>Shopify Review operations</strong>
-        <Form method="post">
+        <Form method="post" action="/admin">
           <input type="hidden" name="csrfToken" value={csrfToken} />
           <input type="hidden" name="intent" value="logout" />
           <button type="submit">Log out {email}</button>
