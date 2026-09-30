@@ -18,6 +18,7 @@ describe('storefront widget safety', () => {
 
   it('registers the public ratings route beside the existing review route', () => {
     const routes = readFileSync('app/routes.ts', 'utf8');
+    expect(routes).toContain("route('api/public/reviews', 'routes/api.public.reviews.ts')");
     expect(routes).toContain("route('api/public/ratings', 'routes/api.public.ratings.ts')");
     expect(routes).toContain("route('api/public/products/:productId/reviews'");
   });

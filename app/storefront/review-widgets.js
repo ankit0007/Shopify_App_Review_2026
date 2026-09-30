@@ -32,9 +32,8 @@
     return node;
   }
 
-  function stars(value, size) {
-    const row = el('span', 'sr-stars');
-    row.style.setProperty('--s', size || '18px');
+  function stars(value, kind) {
+    const row = el('span', `sr-stars sr-stars--${kind || 'card'}`);
     const tenths = Math.round(Number(value || 0) * 10);
     for (let index = 0; index < 5; index += 1) {
       const fill = Math.min(10, Math.max(0, tenths - index * 10)) / 10;
@@ -87,7 +86,7 @@
     const average = count && Number.isFinite(Number(data.averageRating)) ? Number(data.averageRating) : null;
     if (!count) {
       const empty = el('div', 'sr-empty');
-      empty.append(stars(0, '24px'));
+      empty.append(stars(0, 'empty'));
       empty.append(el('h3', '', root.dataset.empty || 'No reviews yet'));
       empty.append(el('p', '', root.dataset.emptyBody || 'Be the first to share your thoughts on this product.'));
       if (root.dataset.showForm !== 'false') {
@@ -103,11 +102,15 @@
     const score = el('div', 'sr__score');
     const avg = el('div', 'sr__avg', average.toFixed(1));
     avg.append(el('span', '', ' / 5'));
-    score.append(avg, stars(average, '22px'), el('p', 'sr__based', `Based on ${count} ${count === 1 ? 'review' : 'reviews'}`));
+    const summaryStars = stars(average, 'summary');
+    summaryStars.setAttribute('aria-hidden', 'true');
+    score.setAttribute('aria-label', `Rated ${average.toFixed(1)} out of 5 stars from ${count} ${count === 1 ? 'review' : 'reviews'}`);
+    score.append(avg, summaryStars, el('p', 'sr__based', `Based on ${count} ${count === 1 ? 'review' : 'reviews'}`));
     const bars = el('div', 'sr__bars');
+    const maxCount = Math.max(0, ...[5, 4, 3, 2, 1].map((star) => Math.max(0, Number(data.distribution?.[String(star)]) || 0)));
     if (root.dataset.showHistogram !== 'false') {
       [5, 4, 3, 2, 1].forEach((star) => {
-        const amount = Number(data.distribution?.[String(star)]) || 0;
+        const amount = Math.max(0, Number(data.distribution?.[String(star)]) || 0);
         const button = el('button', 'sr__bar');
         button.type = 'button';
         button.dataset.rating = String(star);
@@ -118,7 +121,7 @@
         label.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 24 24"><path d="${PATH}"/></svg>`);
         const track = el('span', 'sr__track');
         const fill = el('span', 'sr__fill');
-        fill.style.width = `${count ? (amount / count) * 100 : 0}%`;
+        fill.style.width = `${maxCount ? (amount / maxCount) * 100 : 0}%`;
         track.append(fill);
         button.append(label, track, el('span', 'sr__bar-n', String(amount)));
         button.addEventListener('click', () => {
@@ -133,7 +136,11 @@
     write.setAttribute('aria-expanded', 'false');
     write.hidden = root.dataset.showForm === 'false';
     write.addEventListener('click', () => openForm(root, write));
-    summary.append(score, bars, write);
+    const viewAll = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
+    viewAll.href = '/apps/shopify-review/reviews';
+    const actions = el('div', 'sr__actions');
+    actions.append(write, viewAll);
+    summary.append(score, bars, actions);
   }
 
   function renderCard(root, review) {
@@ -157,7 +164,7 @@
       time.dateTime = review.submittedAt;
       head.append(time);
     }
-    const star = stars(review.rating, '18px');
+    const star = stars(review.rating, 'card');
     star.setAttribute('role', 'img');
     star.setAttribute('aria-label', `${review.rating} out of 5 stars`);
     article.append(head, star);

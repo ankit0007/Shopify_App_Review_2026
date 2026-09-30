@@ -30,6 +30,7 @@ COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /app/build ./build
 COPY --from=build --chown=app:app /app/prisma ./prisma
 COPY --from=build --chown=app:app /app/app ./app
+COPY --from=build --chown=app:app /app/extensions/review-widgets/assets/review-widgets.css ./extensions/review-widgets/assets/review-widgets.css
 COPY --from=build --chown=app:app /app/scripts ./scripts
 COPY --from=build --chown=app:app /app/tsconfig.json ./tsconfig.json
 

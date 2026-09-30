@@ -43,9 +43,13 @@ describe('product rating calculation', () => {
   });
 
   it('fills the last star partially for 4.8', () => {
-    expect(starFills(4.8)).toEqual([1, 1, 1, 1, 0.8]);
-    expect(starFills(4.5)).toEqual([1, 1, 1, 1, 0.5]);
+    expect(starFills(1)).toEqual([1, 0, 0, 0, 0]);
+    expect(starFills(2.5)).toEqual([1, 1, 0.5, 0, 0]);
     expect(starFills(3.2)).toEqual([1, 1, 1, 0.2, 0]);
+    expect(starFills(3.8)).toEqual([1, 1, 1, 0.8, 0]);
+    expect(starFills(4.2)).toEqual([1, 1, 1, 1, 0.2]);
+    expect(starFills(4.5)).toEqual([1, 1, 1, 1, 0.5]);
+    expect(starFills(4.8)).toEqual([1, 1, 1, 1, 0.8]);
     expect(starFills(5)).toEqual([1, 1, 1, 1, 1]);
     expect(starFills(null)).toEqual([0, 0, 0, 0, 0]);
   });
@@ -88,7 +92,7 @@ describe('product rating calculation', () => {
     });
     expect(ratings['gid://shopify/Product/1'].reviewCount).toBe(126);
     expect(formatAverage(ratings['gid://shopify/Product/1'].averageRating)).toBe('4.8');
-    expect(ratingAriaLabel(ratings['gid://shopify/Product/1'])).toBe('Rated 4.8 out of 5 stars, 126 reviews');
+    expect(ratingAriaLabel(ratings['gid://shopify/Product/1'])).toBe('Rated 4.8 out of 5 stars from 126 reviews');
     expect(ratingAriaLabel({averageRating: null, reviewCount: 0})).toBe('No reviews yet');
     expect(JSON.stringify(ratings)).not.toMatch(/email|token|password|cuid/i);
   });

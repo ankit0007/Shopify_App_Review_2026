@@ -85,5 +85,5 @@ export function ratingAriaLabel(rating: PublicRating) {
   if (rating.reviewCount === 0 || rating.averageRating == null) return 'No reviews yet';
   const average = formatAverage(rating.averageRating);
   const noun = rating.reviewCount === 1 ? 'review' : 'reviews';
-  return `Rated ${average} out of 5 stars, ${rating.reviewCount} ${noun}`;
+  return `Rated ${average} out of 5 stars from ${rating.reviewCount} ${noun}`;
 }

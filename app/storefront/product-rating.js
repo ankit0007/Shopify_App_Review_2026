@@ -58,25 +58,41 @@
     return card;
   }
 
+  function isMediaElement(element) {
+    if (element.tagName === 'PICTURE') return true;
+    return classText(element).split(/\s+/).some((token) => {
+      if (!token || token.endsWith('--media')) return false;
+      return token === 'media' || token.endsWith('__media') || /(^|-)(image|gallery|thumbnail|photo|picture)(-|$)/.test(token) || (/(^|-)media$/.test(token));
+    });
+  }
+
   function inMedia(element, card) {
     let node = element;
     while (node && node !== card) {
-      if (node.tagName === 'PICTURE' || /(^|[^a-z])(media|image|gallery|thumbnail|photo|picture)([^a-z]|$)/.test(classText(node))) return true;
+      if (isMediaElement(node)) return true;
       node = node.parentElement;
+    }
+    return false;
+  }
+
+  function isHidden(element) {
+    for (let node = element; node && node !== document.body; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === 'none' || style.visibility === 'hidden') return true;
     }
     return false;
   }
 
   function slot(card, handle) {
     for (const title of card.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="heading"]')) {
-      if (inMedia(title, card)) continue;
+      if (inMedia(title, card) || isHidden(title)) continue;
       const handles = [...title.querySelectorAll('a[href*="/products/"]')].map((anchor) => handleFromHref(anchor.getAttribute('href'))).filter(Boolean);
       if (handles.length === 1 && handles[0] === handle) return {mode: 'after', element: title};
     }
-    const price = [...card.querySelectorAll('[class*="price"],[data-product-price]')].find((element) => !inMedia(element, card));
+    const price = [...card.querySelectorAll('[class*="price"],[data-product-price]')].find((element) => !inMedia(element, card) && !isHidden(element));
     if (price) return {mode: 'before', element: price};
     const info = [...card.querySelectorAll('[class*="information"],[class*="product-info"],[class*="card-content"],[class*="product-details"],[class*="card__content"]')]
-      .find((element) => !inMedia(element, card) && handlesIn(element).size < 2);
+      .find((element) => !inMedia(element, card) && !isHidden(element) && handlesIn(element).size < 2);
     return info ? {mode: 'append', element: info} : null;
   }
 
@@ -167,7 +183,7 @@
     control.className = 'sr-rating__link';
     control.setAttribute('aria-label', average == null
       ? (node.dataset.emptyText || 'Be the first to review.')
-      : `Rated ${average.toFixed(1)} out of 5 stars, ${count} ${count === 1 ? 'review' : 'reviews'}`);
+      : `Rated ${average.toFixed(1)} out of 5 stars from ${count} ${count === 1 ? 'review' : 'reviews'}`);
     if (control instanceof HTMLAnchorElement && target) {
       control.href = `#${target.id}`;
       control.addEventListener('click', (event) => {
