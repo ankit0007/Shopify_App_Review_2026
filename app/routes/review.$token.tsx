@@ -7,6 +7,7 @@ import {submitReview} from '../modules/reviews/review.service.server';
 import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
 import {isSameOrigin} from '../lib/csrf.server';
 import {attachReviewMedia} from '../modules/media/media.service.server';
+import {isMediaStorageConfigured} from '../modules/media/media-storage.server';
 
 export function headers() {
   return {'X-Robots-Tag': 'noindex, nofollow, noarchive'};
@@ -31,7 +32,7 @@ export async function loader({params}: {params: {token?: string}}) {
       data: {shopId: request.shopId, reviewRequestId: request.id, action: 'OPENED'},
     }),
   ]);
-  return {productTitle: request.product?.title ?? 'your purchase', token};
+  return {productTitle: request.product?.title ?? 'your purchase', token, mediaEnabled: isMediaStorageConfigured()};
 }
 
 export async function action({request, params}: {request: Request; params: {token?: string}}) {
@@ -50,6 +51,10 @@ export async function action({request, params}: {request: Request; params: {toke
     data: {shopId: reviewRequest.shopId, reviewRequestId: reviewRequest.id, action: 'CLICKED'},
   });
   const formData = await request.formData();
+  const files = formData.getAll('media').filter((value): value is File => value instanceof File && value.size > 0);
+  if (files.length && !isMediaStorageConfigured()) {
+    return fail('MEDIA_UNAVAILABLE', 'Photo and video uploads are not available.', 400);
+  }
   try {
     const review = await submitReview({
       shopId: reviewRequest.shopId,
@@ -64,7 +69,6 @@ export async function action({request, params}: {request: Request; params: {toke
         displayName: String(formData.get('displayName') ?? ''),
       },
     });
-    const files = formData.getAll('media').filter((value): value is File => value instanceof File && value.size > 0);
     if (files.length) {
       await attachReviewMedia({shopId: reviewRequest.shopId, reviewId: review.id, files});
     }
@@ -75,7 +79,7 @@ export async function action({request, params}: {request: Request; params: {toke
 }
 
 export default function ReviewPage() {
-  const {productTitle} = useLoaderData<typeof loader>();
+  const {productTitle, mediaEnabled} = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   return (
     <Page title={`Review ${productTitle}`}>
@@ -87,7 +91,7 @@ export default function ReviewPage() {
             <TextField label="Title" name="title" autoComplete="off" />
             <TextField label="Review" name="body" multiline={5} autoComplete="off" />
             <TextField label="Display name" name="displayName" autoComplete="name" />
-            <input type="file" name="media" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple />
+            {mediaEnabled ? <input type="file" name="media" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple /> : null}
             <Button submit variant="primary">Submit review</Button>
           </FormLayout>
         </Form>

@@ -26,7 +26,12 @@ export async function action({request}: {request: Request}) {
   const shop = shopDomain
     ? await db.shop.findUnique({where: {shopDomain}})
     : null;
-  if (!shop) return new Response('Unknown shop', {status: 404});
+  if (!shop) {
+    if (['customers/data_request', 'customers/redact', 'shop/redact', 'app/uninstalled'].includes(topic)) {
+      return new Response('OK', {status: 200});
+    }
+    return new Response('Unknown shop', {status: 404});
+  }
   const privacyPayload = payload as {customer?: {id?: number | string}};
 
   try {

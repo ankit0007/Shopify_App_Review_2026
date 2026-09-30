@@ -290,3 +290,11 @@ Local only. The app ran at `http://127.0.0.1:3000`. PostgreSQL was an embedded l
 Logout from a child admin route initially returned HTTP 405 because the form posted to the child route. The logout form now posts to `/admin`, and the retest reached the login page.
 
 Production VPS `187.124.157.194` was not contacted. Production Nginx, Docker, databases, and SMTP were not modified. No production email was sent.
+
+## Phase 1 submission pass
+
+Date: 2026-09-29
+
+Local code now declares the three mandatory compliance webhook topics in `shopify.app.toml` and returns HTTP 200 for those topics when the shop is already gone. The review-link form hides photo and video upload until object storage is configured, and a posted file is rejected before a review is saved. `deploy/nginx/shopifyreview.it3.in.conf` is prepared and was not installed. The submission checklist is `docs/app-store-submission-checklist.md`.
+
+This build was not deployed and was not submitted. The development store still needs an authorized release before the single-widget extension, encrypted cursors, and compliance webhook subscription can be verified there.

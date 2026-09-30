@@ -78,13 +78,28 @@ export class HttpMediaStorage implements MediaStorageService {
   }
 }
 
+function configuredStorage() {
+  const endpoint = config.STORAGE_ENDPOINT;
+  const bucket = config.STORAGE_BUCKET;
+  const accessKey = config.STORAGE_ACCESS_KEY;
+  const secretKey = config.STORAGE_SECRET_KEY;
+  const publicEndpoint = config.STORAGE_PUBLIC_ENDPOINT;
+  if (!endpoint || !bucket || !accessKey || !secretKey || !publicEndpoint) return null;
+  return {endpoint, bucket, accessKey, secretKey, publicEndpoint};
+}
+
+export function isMediaStorageConfigured() {
+  return configuredStorage() !== null;
+}
+
 export function createMediaStorage(): MediaStorageService {
-  if (config.STORAGE_ENDPOINT && config.STORAGE_BUCKET && config.STORAGE_ACCESS_KEY && config.STORAGE_SECRET_KEY && config.STORAGE_PUBLIC_ENDPOINT) {
+  const storage = configuredStorage();
+  if (storage) {
     return new HttpMediaStorage(
-      `${config.STORAGE_ENDPOINT.replace(/\/$/, '')}/${encodeURIComponent(config.STORAGE_BUCKET)}`,
-      config.STORAGE_ACCESS_KEY,
-      config.STORAGE_SECRET_KEY,
-      config.STORAGE_PUBLIC_ENDPOINT.replace(/\/$/, ''),
+      `${storage.endpoint.replace(/\/$/, '')}/${encodeURIComponent(storage.bucket)}`,
+      storage.accessKey,
+      storage.secretKey,
+      storage.publicEndpoint.replace(/\/$/, ''),
     );
   }
   return new UnconfiguredMediaStorage();
