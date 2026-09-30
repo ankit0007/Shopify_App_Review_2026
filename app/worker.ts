@@ -33,7 +33,7 @@ export async function processDueReviewRequests(now = new Date()) {
     });
   }
   const expired = await db.reviewRequest.findMany({
-    where: {status: {in: ['SCHEDULED', 'SENT']}, expiresAt: {lt: now}},
+    where: {status: {in: ['SCHEDULED', 'SENT', 'PENDING', 'OPENED']}, expiresAt: {lt: now}},
     select: {id: true},
   });
   if (expired.length > 0) {
@@ -135,7 +135,7 @@ async function processWebhookEvents() {
     try {
       // Commerce synchronization handlers are intentionally idempotent and
       // belong here, outside the webhook acknowledgement request.
-      if (event.shopId && ['orders/create', 'orders/updated'].includes(event.topic)) {
+      if (event.shopId && ['orders/create', 'orders/updated', 'orders/fulfilled', 'fulfillments/create'].includes(event.topic)) {
         await syncOrderWebhook(event.shopId, event.payload as ShopifyOrderPayload);
       }
       await db.webhookEvent.update({
