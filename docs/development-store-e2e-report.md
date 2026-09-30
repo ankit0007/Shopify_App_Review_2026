@@ -298,3 +298,38 @@ Date: 2026-09-29
 Local code now declares the three mandatory compliance webhook topics in `shopify.app.toml` and returns HTTP 200 for those topics when the shop is already gone. The review-link form hides photo and video upload until object storage is configured, and a posted file is rejected before a review is saved. `deploy/nginx/shopifyreview.it3.in.conf` is prepared and was not installed. The submission checklist is `docs/app-store-submission-checklist.md`.
 
 This build was not deployed and was not submitted. The development store still needs an authorized release before the single-widget extension, encrypted cursors, and compliance webhook subscription can be verified there.
+
+## Product Rating & Listing E2E Test
+
+Date: 2026-10-01
+
+The rating summary was added locally on the current app. Production host `187.124.157.194`, production Nginx, Docker, the production database, and production email were not touched. The theme extension was not published. `shopify app deploy` and `shopify app dev` were not run, so the development store still has the previously published extension.
+
+### Placement
+
+Online Store 2.0 themes can place two independent app blocks:
+
+- **Product rating** shows only the compact summary. In the theme editor, open the product template, add the Product rating block, and move it directly under the product title and above the price.
+- **Product reviews** is the existing full list and form. Keep a single copy lower on the product template.
+
+For collection and search pages, enable the **Product ratings** app embed. It emits one hidden summary per product from `collection.products` or from product results in `search.results`, then moves each summary after an `h1` whose text matches that product title, or into the parent of the first link whose href contains `/products/{handle}`. It does not use a Dawn-only class name. A summary that cannot be placed is removed, so it does not appear at the bottom of the page.
+
+Homepage featured grids, recommended-product sections that load after the embed runs, and custom cards that have neither a matching title nor a `/products/{handle}` link are not covered automatically. Add the Product rating block to that section when the theme allows an app block on the card.
+
+Do not add the full review widget twice. If the Product reviews section block and the Customer reviews embed are both enabled, the section block stays and the embed for that product is removed. The rating summary uses `shopify-review-rating` and does not render the review list or form.
+
+Structured data was inspected in the theme extension. It does not emit Product or aggregateRating JSON-LD. Merchant themes already emit Product structured data, and a second Product script would conflict with it. No aggregate rating is invented for products with no approved reviews.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Product page rating | NOT TESTED | The new Product rating block is not on the development-store theme. Publishing the extension was not authorized. |
+| Collection page rating | NOT TESTED | The Product ratings embed was not enabled on the development store. |
+| Zero-review state | PARTIAL | `summarizeRatingCounts([])` returns `{averageRating: null, reviewCount: 0}`. `starFills(null)` is five empty fills. No `0.0` or `5.0` is produced. The storefront empty text was not viewed. |
+| Approved review calculation | PASS | Vitest: 80 fives, 30 fours, and 10 threes is 120 reviews and formats as `4.6`. `14/3` formats as `4.7`. `17/4` formats as `4.3`. Two fives format as `5.0`. One review has count 1. `starFills(4.8)` is four full stars and one 0.8 fill. |
+| Rejected review exclusion | PASS | `includeInRating` is false for pending, rejected, deleted, another shop, and another product. `assemblePublicRatings` returns `{averageRating: null, reviewCount: 0}` for a product id owned by a different shop. |
+| Rating click navigation | NOT TESTED | The storefront script links to `#shopify-product-reviews-{id}` and calls `scrollIntoView({behavior:'smooth'})` plus `focus` only when that section exists. No browser click was recorded. |
+| Mobile test | NOT TESTED | No mobile viewport was opened. CSS sets `max-width: 100%` at 414px. |
+| Theme Editor settings | NOT TESTED | Block settings exist for enable, star color, empty star color, star size, text size, count visibility, precision, alignment, spacing, click-to-reviews, empty text, write-a-review text, and count format. The theme editor was not opened. |
+| Duplicate widget test | PARTIAL | `widget-placement.test.ts` still keeps the section widget and removes the embed for the same product. Rating nodes use a separate script and the `shopify-review-rating` class. Both blocks were not enabled together on the development store. |
+| Security test | PASS | Vitest rejects an invalid shop, a missing signature, a tampered signature, a SQL-like product id, a `<script>` product id, a bad GID, 51 ids, and a query longer than 4000 characters. The batch response fixture contains average and count only. The live App Proxy was not called. |
+| Regression test | PASS | `npm test` (52), `npm run typecheck`, `npm run lint`, `npm run build`, `npx prisma validate`, `npx prisma generate`, and `shopify app build` passed. Theme check reported no errors after the rating script was split into `product-rating.js` so each app-block JavaScript file stays under 10 KB. |
