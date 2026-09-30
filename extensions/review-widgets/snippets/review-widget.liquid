@@ -20,8 +20,8 @@
     <form id="shopify-review-form-{{ product.id }}" class="shopify-review-widget__form" data-review-form method="post" action="/apps/shopify-review/products/{{ product.id }}/reviews">
       <h3>Write a review</h3>
       <div class="shopify-review-widget__picker" data-star-picker>
-        <span class="shopify-review-widget__picker-label">Your rating</span>
-        <div class="shopify-review-widget__picker-stars" role="radiogroup" aria-label="Rating">
+        <span class="shopify-review-widget__picker-label" id="shopify-review-rating-label-{{ product.id }}">Your rating</span>
+        <div class="shopify-review-widget__picker-stars" role="radiogroup" aria-labelledby="shopify-review-rating-label-{{ product.id }}">
           <button type="button" role="radio" data-value="1" aria-label="1 star">★</button>
           <button type="button" role="radio" data-value="2" aria-label="2 stars">★</button>
           <button type="button" role="radio" data-value="3" aria-label="3 stars">★</button>

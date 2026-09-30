@@ -1,4 +1,5 @@
 import {Form, redirect, useActionData} from 'react-router';
+import '../styles/platform-admin.css';
 import {db} from '../db.server';
 import {requestClientKey} from '../lib/rate-limit.server';
 import {attemptPlatformLogin} from '../modules/admin/auth';
@@ -31,7 +32,7 @@ export async function action({request}: {request: Request}) {
 export default function PlatformLogin() {
   const result = useActionData<typeof action>();
   return (
-    <main style={{maxWidth: 420, margin: '4rem auto', fontFamily: 'sans-serif'}}>
+    <main className="platform-login">
       <h1>Platform administration</h1>
       <p>This login is separate from the Shopify merchant app.</p>
       {result && 'error' in result ? <p role="alert">{result.error}</p> : null}

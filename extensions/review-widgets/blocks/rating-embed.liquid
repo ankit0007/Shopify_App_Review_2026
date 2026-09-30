@@ -5,6 +5,8 @@
     data-page-type="{{ request.page_type }}"
     data-click="{% if block.settings.click_to_reviews %}true{% else %}false{% endif %}"
     data-show-count="{% if block.settings.show_count %}true{% else %}false{% endif %}"
+    data-show-number="{% if block.settings.show_number %}true{% else %}false{% endif %}"
+    data-half-stars="{% if block.settings.half_stars %}true{% else %}false{% endif %}"
     data-count-format="{{ block.settings.count_format | escape }}"
     data-precision="{{ block.settings.precision | default: '1' | escape }}"
     data-empty-text="{{ block.settings.empty_text | escape }}"
@@ -28,6 +30,8 @@
             star_size: block.settings.star_size,
             text_size: block.settings.text_size,
             show_count: block.settings.show_count,
+            show_number: block.settings.show_number,
+            half_stars: block.settings.half_stars,
             count_format: block.settings.count_format,
             precision: block.settings.precision,
             alignment: block.settings.alignment,
@@ -49,7 +53,9 @@
               star_size: block.settings.star_size,
               text_size: block.settings.text_size,
               show_count: block.settings.show_count,
-              count_format: block.settings.count_format,
+            show_number: block.settings.show_number,
+            half_stars: block.settings.half_stars,
+            count_format: block.settings.count_format,
               precision: block.settings.precision,
               alignment: block.settings.alignment,
               spacing: block.settings.spacing,
@@ -59,24 +65,6 @@
             %}
           {% endif %}
         {% endfor %}
-      {% when 'product' %}
-        {% render 'product-rating',
-          product: product,
-          placement: 'embed',
-          hidden: true,
-          star_color: block.settings.star_color,
-          empty_color: block.settings.empty_star_color,
-          star_size: block.settings.star_size,
-          text_size: block.settings.text_size,
-          show_count: block.settings.show_count,
-          count_format: block.settings.count_format,
-          precision: block.settings.precision,
-          alignment: block.settings.alignment,
-          spacing: block.settings.spacing,
-          click_to_reviews: block.settings.click_to_reviews,
-          empty_text: block.settings.empty_text,
-          write_text: block.settings.write_text
-        %}
     {% endcase %}
   </div>
 {% endif %}
@@ -91,9 +79,11 @@
     {"type": "checkbox", "id": "enabled", "label": "Show rating", "default": true},
     {"type": "color", "id": "star_color", "label": "Star color", "default": "#f5b301"},
     {"type": "color", "id": "empty_star_color", "label": "Empty star color", "default": "#c5c5c5"},
-    {"type": "range", "id": "star_size", "label": "Star size", "min": 12, "max": 32, "step": 1, "unit": "px", "default": 16},
+    {"type": "range", "id": "star_size", "label": "Star size", "min": 12, "max": 32, "step": 1, "unit": "px", "default": 20},
     {"type": "range", "id": "text_size", "label": "Rating text size", "min": 12, "max": 24, "step": 1, "unit": "px", "default": 14},
     {"type": "checkbox", "id": "show_count", "label": "Show review count", "default": true},
+    {"type": "checkbox", "id": "show_number", "label": "Show rating number", "default": true},
+    {"type": "checkbox", "id": "half_stars", "label": "Show partial stars", "default": true},
     {"type": "select", "id": "precision", "label": "Rating precision", "default": "1", "options": [{"value": "1", "label": "One decimal"}]},
     {"type": "select", "id": "alignment", "label": "Alignment", "default": "left", "options": [{"value": "left", "label": "Left"}, {"value": "center", "label": "Center"}, {"value": "right", "label": "Right"}]},
     {"type": "range", "id": "spacing", "label": "Spacing", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 8},

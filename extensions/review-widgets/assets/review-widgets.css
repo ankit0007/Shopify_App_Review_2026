@@ -1,13 +1,16 @@
 .shopify-review-widget {
   box-sizing: border-box;
   width: 100%;
-  max-width: 100%;
+  max-width: 720px;
   margin: 2rem 0;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  color: #111827;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-family: inherit;
+  --rating-star: var(--review-accent, #f5b301);
+  --rating-empty: #d1d5db;
+  --rating-size: 20px;
 }
 
 .shopify-review-widget__title {
@@ -25,11 +28,12 @@
 .shopify-review-widget__stars,
 .shopify-review-widget__picker-stars {
   display: inline-flex;
-  gap: .15rem;
+  flex: 0 0 auto;
+  gap: 1px;
   color: #d1d5db;
-  font-size: 1.35rem;
   line-height: 1;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .shopify-review-widget__stars .is-filled,
@@ -78,6 +82,18 @@
   margin: .25rem 0;
 }
 
+.shopify-review-widget__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .75rem;
+  color: #4b5563;
+  font-size: .92rem;
+}
+
+.shopify-review-widget__verified::before {
+  content: "✓ ";
+}
+
 .shopify-review-widget__list {
   display: grid;
   gap: 1rem;
@@ -103,9 +119,17 @@
 .shopify-review-widget__form select,
 .shopify-review-widget__form textarea {
   width: 100%;
-  padding: .5rem .75rem;
+  max-width: 100%;
+  padding: .65rem .75rem;
   border: 1px solid #d1d5db;
   border-radius: 8px;
+  font: inherit;
+}
+
+.shopify-review-widget__form input:focus-visible,
+.shopify-review-widget__form textarea:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .shopify-review-widget__form button[type="submit"] {
@@ -131,7 +155,8 @@
   display: block;
   max-width: 100%;
   margin: var(--rating-space, 8px) 0;
-  color: #111827;
+  color: inherit;
+  font-family: inherit;
   font-size: var(--rating-text, 14px);
   line-height: 1.4;
 }
@@ -173,9 +198,9 @@
 .shopify-review-rating__star {
   position: relative;
   display: inline-block;
-  width: var(--rating-size, 16px);
-  height: var(--rating-size, 16px);
-  font-size: var(--rating-size, 16px);
+  width: var(--rating-size, 20px);
+  height: var(--rating-size, 20px);
+  font-size: var(--rating-size, 20px);
   line-height: 1;
 }
 
@@ -193,9 +218,23 @@
   white-space: nowrap;
 }
 
-@media (max-width: 989px) {
+@media (max-width: 749px) {
   .shopify-review-rating,
-  .shopify-review-rating__link {
+  .shopify-review-rating__link,
+  .shopify-review-widget,
+  .shopify-review-widget__form input,
+  .shopify-review-widget__form textarea {
     max-width: 100%;
+  }
+
+  .shopify-review-rating__star,
+  .shopify-review-widget .shopify-review-rating__star {
+    width: calc(var(--rating-size, 20px) * .9);
+    height: calc(var(--rating-size, 20px) * .9);
+    font-size: calc(var(--rating-size, 20px) * .9);
+  }
+
+  .shopify-review-rating {
+    font-size: 14px;
   }
 }

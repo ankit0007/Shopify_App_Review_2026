@@ -44,6 +44,8 @@ describe('product rating calculation', () => {
 
   it('fills the last star partially for 4.8', () => {
     expect(starFills(4.8)).toEqual([1, 1, 1, 1, 0.8]);
+    expect(starFills(4.5)).toEqual([1, 1, 1, 1, 0.5]);
+    expect(starFills(3.2)).toEqual([1, 1, 1, 0.2, 0]);
     expect(starFills(5)).toEqual([1, 1, 1, 1, 1]);
     expect(starFills(null)).toEqual([0, 0, 0, 0, 0]);
   });

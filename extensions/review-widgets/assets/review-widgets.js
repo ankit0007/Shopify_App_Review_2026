@@ -38,14 +38,22 @@
     const endpoint = `/apps/shopify-review/products/${encodeURIComponent(productId)}/reviews`;
     let cursor = null;
 
-    function stars(rating) {
-      const row = document.createElement('p');
+    function stars(average) {
+      const row = document.createElement('span');
       row.className = 'shopify-review-widget__stars';
-      row.setAttribute('aria-label', `${rating} out of 5 stars`);
-      for (let value = 1; value <= 5; value += 1) {
+      row.setAttribute('aria-hidden', 'true');
+      const tenths = Math.round((Number(average) || 0) * 10);
+      for (let index = 0; index < 5; index += 1) {
         const star = document.createElement('span');
-        star.className = value <= rating ? 'is-filled' : 'is-empty';
-        star.textContent = '★';
+        star.className = 'shopify-review-rating__star';
+        star.style.setProperty('--fill', String(Math.min(10, Math.max(0, tenths - index * 10)) / 10));
+        const empty = document.createElement('span');
+        empty.className = 'is-empty';
+        empty.textContent = '★';
+        const filled = document.createElement('span');
+        filled.className = 'is-fill';
+        filled.textContent = '★';
+        star.append(empty, filled);
         row.append(star);
       }
       return row;
@@ -54,17 +62,23 @@
     function render(reviews, averageValue, totalValue, append) {
       if (!list) return;
       if (!append) list.replaceChildren();
+      const total = Number.isFinite(totalValue) ? totalValue : reviews.length;
       if (!reviews.length && !append) {
-        if (summary) summary.textContent = emptyMessage;
+        if (summary) {
+          summary.replaceChildren(stars(0));
+          const text = document.createElement('span');
+          text.textContent = emptyMessage;
+          summary.append(text);
+          summary.setAttribute('aria-label', emptyMessage);
+        }
         return;
       }
-      if (summary && Number.isFinite(averageValue)) {
-        summary.replaceChildren();
-        summary.append(stars(Math.round(averageValue)));
+      if (summary && Number.isFinite(averageValue) && total > 0) {
+        summary.replaceChildren(stars(averageValue));
         const count = document.createElement('span');
-        const total = Number.isFinite(totalValue) ? totalValue : reviews.length;
-        count.textContent = `${averageValue.toFixed(1)} out of 5 · ${total} review${total === 1 ? '' : 's'}`;
+        count.textContent = `${averageValue.toFixed(1)} · ${total} review${total === 1 ? '' : 's'}`;
         summary.append(count);
+        summary.setAttribute('aria-label', `Rated ${averageValue.toFixed(1)} out of 5 stars from ${total} review${total === 1 ? '' : 's'}`);
       }
       reviews.forEach((review) => {
         const item = document.createElement('article');
@@ -73,12 +87,25 @@
         title.textContent = review.title || 'Review';
         const body = document.createElement('p');
         body.textContent = review.body;
-        const meta = document.createElement('small');
-        const parts = [];
-        if (showName) parts.push(review.displayName || 'Customer');
-        if (showVerified && review.verifiedPurchase) parts.push('Verified purchase');
-        if (showDate && review.submittedAt) parts.push(new Date(review.submittedAt).toLocaleDateString());
-        meta.textContent = parts.join(' · ');
+        const meta = document.createElement('p');
+        meta.className = 'shopify-review-widget__meta';
+        if (showName) {
+          const name = document.createElement('span');
+          name.textContent = review.displayName || 'Customer';
+          meta.append(name);
+        }
+        if (showVerified && review.verifiedPurchase) {
+          const badge = document.createElement('span');
+          badge.className = 'shopify-review-widget__verified';
+          badge.textContent = 'Verified purchase';
+          meta.append(badge);
+        }
+        if (showDate && review.submittedAt) {
+          const date = document.createElement('time');
+          date.dateTime = review.submittedAt;
+          date.textContent = new Date(review.submittedAt).toLocaleDateString();
+          meta.append(date);
+        }
         item.append(stars(Number(review.rating) || 0), title, meta, body);
         list.append(item);
       });
@@ -150,7 +177,7 @@
       fetch(endpoint, {method: 'POST', body})
         .then(async (response) => {
           const payload = await response.json().catch(() => null);
-          if (!response.ok) throw new Error(payload?.error?.message || 'Could not save review');
+          if (!response.ok) throw new Error('Could not save review');
           return payload;
         })
         .then(() => {
@@ -165,7 +192,7 @@
           if (message) message.textContent = 'Thank you. Your review was sent for approval.';
         })
         .catch((error) => {
-          if (message) message.textContent = error instanceof Error ? error.message : 'The review could not be sent. Please try again.';
+          if (message) message.textContent = 'The review could not be sent. Please try again.';
         })
         .finally(() => {
           if (submit) submit.disabled = false;

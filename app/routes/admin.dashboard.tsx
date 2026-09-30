@@ -34,7 +34,9 @@ export default function PlatformDashboard() {
   return (
     <section>
       <h1>Dashboard</h1>
-      <ul>{rows.map(([label, value]) => <li key={label}>{label}: {value}</li>)}</ul>
+      <ul className="platform-metrics">
+        {rows.map(([label, value]) => <li key={label}><strong>{value}</strong>{label}</li>)}
+      </ul>
     </section>
   );
 }

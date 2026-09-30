@@ -1,4 +1,5 @@
 import {Form, Outlet, useLoaderData} from 'react-router';
+import '../styles/platform-admin.css';
 import {assertCsrf, destroyPlatformSession, requirePlatformAdmin, writePlatformAudit} from '../modules/admin/session.server';
 
 export async function loader({request}: {request: Request}) {
@@ -21,8 +22,8 @@ export async function action({request}: {request: Request}) {
 export default function PlatformAdminLayout() {
   const {email, csrfToken} = useLoaderData<typeof loader>();
   return (
-    <main style={{fontFamily: 'sans-serif', margin: '1.5rem'}}>
-      <header style={{display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center'}}>
+    <main className="platform-shell">
+      <header>
         <strong>Shopify Review operations</strong>
         <Form method="post" action="/admin">
           <input type="hidden" name="csrfToken" value={csrfToken} />
@@ -30,7 +31,7 @@ export default function PlatformAdminLayout() {
           <button type="submit">Log out {email}</button>
         </Form>
       </header>
-      <nav style={{display: 'flex', gap: '1rem', margin: '1rem 0'}}>
+      <nav className="platform-nav">
         <a href="/admin">Dashboard</a>
         <a href="/admin/smtp">SMTP</a>
         <a href="/admin/email-templates">Email templates</a>

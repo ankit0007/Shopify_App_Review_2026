@@ -123,7 +123,9 @@ export default function Reviews() {
                       <InlineStack gap="200">
                         <button type="submit" name="decision" value="FEATURE" style={secondaryButton}>Feature</button>
                         <button type="submit" name="decision" value="HIDE" style={secondaryButton}>Hide</button>
-                        <button type="submit" name="decision" value="DELETE" style={deleteButton}>Delete</button>
+                        <button type="submit" name="decision" value="DELETE" style={deleteButton} onClick={(event) => {
+                          if (!window.confirm('Delete this review?')) event.preventDefault();
+                        }}>Delete</button>
                       </InlineStack>
                     </Form>
                   ) : null}

@@ -39,11 +39,17 @@
     return found;
   }
 
+  function banned(node) {
+    const name = `${node.tagName} ${classText(node)} ${node.id || ''}`.toLowerCase();
+    return node.tagName === 'FOOTER' || node.tagName === 'HEADER' || /(cart-drawer|cart_drawer|mini-cart|search-modal)/.test(name);
+  }
+
   function cardFrom(anchor) {
+    if (anchor.closest('footer, header')) return null;
     let node = anchor.parentElement;
     let card = null;
     while (node && node !== document.body) {
-      if (node.hasAttribute('data-rating-source')) break;
+      if (node.hasAttribute('data-rating-source') || banned(node)) break;
       const found = handlesIn(node);
       if (found.size > 1) break;
       if (found.size === 1) card = node;
@@ -84,9 +90,10 @@
     if (!source) return null;
     const data = source.dataset;
     return {
-      click: data.click !== 'false', showCount: data.showCount !== 'false', countFormat: data.countFormat || 'words',
+      click: data.click !== 'false', showCount: data.showCount !== 'false', showNumber: data.showNumber !== 'false',
+      halfStars: data.halfStars !== 'false', countFormat: data.countFormat || 'words',
       precision: data.precision || '1', emptyText: data.emptyText || 'No reviews yet', writeText: data.writeText || 'Write a review',
-      star: data.star || '#f5b301', empty: data.empty || '#c5c5c5', starSize: data.starSize || '16',
+      star: data.star || '#f5b301', empty: data.empty || '#c5c5c5', starSize: data.starSize || '20',
       textSize: data.textSize || '14', space: data.space || '8', align: data.align || 'left',
     };
   }
@@ -98,22 +105,28 @@
     Object.assign(node.dataset, {
       productRating: '', productId, shopifyReviewRatingProductId: productId, productHandle: handle, placement: 'embed',
       click: settings.click ? 'true' : 'false', showCount: settings.showCount ? 'true' : 'false',
+      showNumber: settings.showNumber ? 'true' : 'false', halfStars: settings.halfStars ? 'true' : 'false',
       countFormat: settings.countFormat, precision: settings.precision, emptyText: settings.emptyText, writeText: settings.writeText,
     });
     node.style.cssText = `--rating-star:${settings.star};--rating-empty:${settings.empty};--rating-size:${settings.starSize}px;--rating-text:${settings.textSize}px;--rating-space:${settings.space}px;text-align:${settings.align}`;
     return node;
   }
 
-  function starFills(average) {
+  function starFills(average, halfStars) {
     if (!Number.isFinite(average)) return [0, 0, 0, 0, 0];
     const tenths = Math.round(average * 10);
-    return [0, 1, 2, 3, 4].map((index) => Math.min(10, Math.max(0, tenths - index * 10)) / 10);
+    return [0, 1, 2, 3, 4].map((index) => {
+      const fill = Math.min(10, Math.max(0, tenths - index * 10)) / 10;
+      return halfStars === false ? (fill >= 0.5 ? 1 : 0) : fill;
+    });
   }
 
   function renderRating(node, rating) {
     const count = Number(rating?.reviewCount) || 0;
     const average = count > 0 && Number.isFinite(Number(rating?.averageRating)) ? Number(rating.averageRating) : null;
     const click = node.dataset.click !== 'false';
+    const showNumber = node.dataset.showNumber !== 'false';
+    const halfStars = node.dataset.halfStars !== 'false';
     const productId = numericId(node.dataset.productId);
     const handle = node.dataset.productHandle;
     const target = productId ? document.getElementById(`shopify-product-reviews-${productId}`) : null;
@@ -136,7 +149,7 @@
     const stars = document.createElement('span');
     stars.className = 'shopify-review-rating__stars';
     stars.setAttribute('aria-hidden', 'true');
-    starFills(average).forEach((fill) => {
+    starFills(average, halfStars).forEach((fill) => {
       const star = document.createElement('span');
       star.className = 'shopify-review-rating__star';
       star.style.setProperty('--fill', String(fill));
@@ -154,7 +167,9 @@
     if (average == null) text.textContent = `${node.dataset.emptyText || 'No reviews yet'}${click && target ? ` ${node.dataset.writeText || 'Write a review'}` : ''}`;
     else {
       const countLabel = node.dataset.countFormat === 'compact' ? `(${count})` : `${count} ${count === 1 ? 'review' : 'reviews'}`;
-      text.textContent = node.dataset.showCount === 'false' ? average.toFixed(1) : `${average.toFixed(1)} ${countLabel}`;
+      const number = showNumber ? average.toFixed(1) : '';
+      const visible = [number, node.dataset.showCount === 'false' ? '' : countLabel].filter(Boolean).join(' ');
+      text.textContent = visible;
     }
     control.append(stars, text);
     node.replaceChildren(control);
@@ -231,19 +246,20 @@
       const handle = node.dataset.productHandle;
       const id = numericId(node.dataset.productId);
       const match = handle && id && !blocked.has(id) ? findCard(handle) : null;
-      if (match) {
+      const pageTitle = pageType === 'product' ? (document.querySelector('main h1') || document.querySelector('h1')) : null;
+      if (match && !(pageTitle && match.card.contains(pageTitle))) {
         place(node, match.point);
         match.card.setAttribute('data-shopify-review-rating-mounted', '1');
         match.card.setAttribute('data-shopify-review-rating-product-id', id);
-      } else if (!(pageType === 'product' && id && !blocked.has(id) && (document.querySelector('main') || document.body).querySelector('h1')?.insertAdjacentElement('afterend', node))) {
-        node.remove();
-      }
+      } else node.remove();
     });
-    if (settings) {
+    const cardPages = ['collection', 'search', 'product', 'index'];
+    if (settings && cardPages.includes(pageType)) {
+      const pageTitle = pageType === 'product' ? (document.querySelector('main h1') || document.querySelector('h1')) : null;
       for (const anchor of document.querySelectorAll('a[href*="/products/"]')) {
         const handle = handleFromHref(anchor.getAttribute('href'));
         const card = handle ? cardFrom(anchor) : null;
-        if (!card) continue;
+        if (!card || (pageTitle && card.contains(pageTitle))) continue;
         if (card.getAttribute('data-shopify-review-rating-mounted') === '1' || card.querySelector('.shopify-review-rating')) {
           if (card.querySelector('.shopify-review-rating')) card.setAttribute('data-shopify-review-rating-mounted', '1');
           continue;
