@@ -22,6 +22,7 @@ services:
     cpus: 1.0
 
   shopifyreview-app:
+    image: shopifyreview-app:release
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,6 +44,31 @@ services:
       - shopifyreview-network
     mem_limit: 1536m
     cpus: 1.0
+
+  shopifyreview-worker:
+    image: shopifyreview-app:release
+    container_name: shopifyreview-worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shopify_review}:${POSTGRES_PASSWORD}@shopifyreview-db:5432/${POSTGRES_DB:-shopify_review_db}
+      WORKER_POLL_MS: 60000
+    command: ["node", "--import", "tsx", "app/worker.ts"]
+    depends_on:
+      shopifyreview-db:
+        condition: service_healthy
+    networks:
+      - shopifyreview-network
+    mem_limit: 512m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('fs'); const cmd=fs.readFileSync('/proc/1/cmdline').toString(); if(!cmd.includes('worker')) process.exit(1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   shopifyreview-db-data:

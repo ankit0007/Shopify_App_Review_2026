@@ -151,6 +151,22 @@ async function processWebhookEvents() {
   }
 }
 
-await processDueReviewRequests();
-await processWebhookEvents();
+const pollMs = Number(process.env.WORKER_POLL_MS ?? 60_000);
+let stopping = false;
+process.on('SIGTERM', () => {
+  stopping = true;
+});
+process.on('SIGINT', () => {
+  stopping = true;
+});
+
+while (!stopping) {
+  await processDueReviewRequests();
+  await processWebhookEvents();
+  const started = Date.now();
+  while (!stopping && Date.now() - started < pollMs) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
 await db.$disconnect();
