@@ -81,6 +81,11 @@ export async function processDueReviewRequests(now = new Date()) {
       }
       const recipient = decryptData(request.customer.emailEncrypted);
       const token = decryptData(request.tokenEncrypted);
+      const siblings = request.orderId ? await db.reviewRequest.findMany({
+        where: {shopId: request.shopId, orderId: request.orderId, customerId: request.customerId},
+        select: {product: {select: {title: true}}},
+      }) : [];
+      const productName = siblings.map((item) => item.product?.title).filter((title): title is string => Boolean(title)).join(', ') || request.product.title;
       const result = await deliverReviewEmail({
         emailService,
         shopId: request.shopId,
@@ -88,8 +93,8 @@ export async function processDueReviewRequests(now = new Date()) {
         reviewRequestId: request.id,
         reminderCount: request.reminderCount,
         recipient,
-        productName: request.product.title,
-        reviewUrl: `${config.SHOPIFY_APP_URL}/review/${encodeURIComponent(token)}`,
+        productName,
+        reviewUrl: `${config.SHOPIFY_APP_URL}/review-request/${encodeURIComponent(token)}`,
         unsubscribeUrl: `${config.SHOPIFY_APP_URL}/unsubscribe/${encodeURIComponent(token)}`,
         secrets: smtp ? [smtp.password, smtp.username] : [],
       });

@@ -22,6 +22,10 @@ uri = "/webhooks"
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
 uri = "/webhooks"
 
+[[webhooks.subscriptions]]
+topics = ["orders/fulfilled", "fulfillments/create"]
+uri = "/webhooks"
+
 [app_proxy]
 url = "https://shopifyreview.it3.in/api/public"
 subpath = "shopify-review"

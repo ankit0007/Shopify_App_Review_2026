@@ -73,9 +73,9 @@ export async function deliverReviewEmail(input: {
     unsubscribeUrl: input.unsubscribeUrl,
   });
   const message = rendered ?? {
-    subject: `How was your ${input.productName}?`,
-    html: `<p>We would love your feedback on ${input.productName}.</p><p><a href="${input.reviewUrl}">Share your review</a></p>`,
-    text: `Share your review: ${input.reviewUrl}`,
+    subject: 'How was your purchase from {{shopName}}?',
+    html: `<p>Hi {{customerName}},</p><p>Your order has been fulfilled. We would love to hear what you think about the products you received.</p><p>${input.productName}</p><p><a href="${input.reviewUrl}">Write a review</a></p>`,
+    text: `Hi Customer, your order has been fulfilled. Review ${input.productName}: ${input.reviewUrl}`,
   };
   const delivery = await db.emailDelivery.create({
     data: {
