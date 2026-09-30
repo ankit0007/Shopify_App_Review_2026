@@ -1,0 +1,19 @@
+{% comment %}
+  Compact rating only. This snippet must not render the full review list or form.
+{% endcomment %}
+<div
+  class="shopify-review-rating"
+  {% if hidden %}hidden{% endif %}
+  data-product-rating
+  data-product-id="{{ product.id }}"
+  data-product-handle="{{ product.handle | escape }}"
+  data-product-title="{{ product.title | escape }}"
+  data-placement="{{ placement | default: 'section' | escape }}"
+  data-click="{% if click_to_reviews %}true{% else %}false{% endif %}"
+  data-show-count="{% if show_count %}true{% else %}false{% endif %}"
+  data-count-format="{{ count_format | escape }}"
+  data-precision="{{ precision | default: '1' | escape }}"
+  data-empty-text="{{ empty_text | escape }}"
+  data-write-text="{{ write_text | escape }}"
+  style="--rating-star: {{ star_color | default: '#f5b301' }}; --rating-empty: {{ empty_color | default: '#c5c5c5' }}; --rating-size: {{ star_size | default: 16 }}px; --rating-text: {{ text_size | default: 14 }}px; --rating-space: {{ spacing | default: 8 }}px; text-align: {{ alignment | default: 'left' }};"
+></div>

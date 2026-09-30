@@ -12,7 +12,6 @@ RUN npx prisma generate
 COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
-RUN npm install --omit=dev --no-save --no-package-lock tsx@4.20.5
 
 FROM node:22-bookworm-slim AS runtime
 

@@ -3,16 +3,20 @@ import {Page, Layout, Card, Text, BlockStack} from '@shopify/polaris';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {getReviewAnalytics} from '../modules/analytics/analytics.service.server';
+import {listProductRatingSummaries} from '../modules/reviews/rating.server';
+import {formatAverage} from '../modules/reviews/rating';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
-  const analytics = shop ? await getReviewAnalytics(shop.id) : null;
-  return {analytics};
+  const [analytics, productRatings] = shop
+    ? await Promise.all([getReviewAnalytics(shop.id), listProductRatingSummaries(shop.id)])
+    : [null, []];
+  return {analytics, productRatings};
 }
 
 export default function Dashboard() {
-  const {analytics} = useLoaderData<typeof loader>();
+  const {analytics, productRatings} = useLoaderData<typeof loader>();
   const ratingDistribution = analytics?.ratingDistribution ?? {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
   return (
     <Page title="Dashboard">
@@ -30,6 +34,18 @@ export default function Dashboard() {
                   ? 'Review-request conversion is not available yet.'
                   : `${Math.round(analytics.requestConversion * 100)}% of accepted review requests were submitted.`}
               </Text>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingMd">Product ratings</Text>
+              {productRatings.length === 0 ? <Text as="p">No approved reviews yet.</Text> : productRatings.map((product) => (
+                <Text as="p" key={product.shopifyProductId}>
+                  {product.title} · {formatAverage(product.averageRating)} · {product.reviewCount} {product.reviewCount === 1 ? 'review' : 'reviews'}
+                </Text>
+              ))}
             </BlockStack>
           </Card>
         </Layout.Section>

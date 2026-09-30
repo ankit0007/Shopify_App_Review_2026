@@ -8,6 +8,7 @@ export default [
   route('webhooks', 'routes/webhooks.ts'),
   route('review/:token', 'routes/review.$token.tsx'),
   route('api/public/products/:productId/reviews', 'routes/api.public.products.$productId.reviews.ts'),
+  route('api/public/ratings', 'routes/api.public.ratings.ts'),
   route('unsubscribe/:token', 'routes/unsubscribe.$token.tsx'),
   route('admin/login', 'routes/admin.login.tsx'),
   route('admin', 'routes/admin.tsx', [

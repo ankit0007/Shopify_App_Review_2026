@@ -1,4 +1,5 @@
 <section
+  id="shopify-product-reviews-{{ product.id }}"
   class="shopify-review-widget"
   data-product-id="{{ product.id }}"
   data-placement="{{ placement }}"
@@ -9,6 +10,7 @@
   data-empty-message="{{ empty_message | escape }}"
   style="--review-accent: {{ accent | default: '#f5b301' }};"
   aria-label="Customer reviews"
+  tabindex="-1"
 >
   <h2 class="shopify-review-widget__title">Customer reviews</h2>
   <p class="shopify-review-widget__summary" data-review-summary>{{ empty_message | default: 'No reviews yet' | escape }}</p>

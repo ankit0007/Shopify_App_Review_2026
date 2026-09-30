@@ -117,3 +117,75 @@
   color: #fff;
   cursor: pointer;
 }
+
+.shopify-review-widget:focus {
+  outline: 3px solid #111827;
+  outline-offset: 4px;
+}
+
+.shopify-review-rating-source {
+  display: contents;
+}
+
+.shopify-review-rating {
+  display: block;
+  max-width: 100%;
+  margin: var(--rating-space, 8px) 0;
+  color: #111827;
+  font-size: var(--rating-text, 14px);
+  line-height: 1.4;
+}
+
+.shopify-review-rating[hidden] {
+  display: none !important;
+}
+
+.shopify-review-rating__link {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.shopify-review-rating__link:focus-visible {
+  outline: 3px solid #111827;
+  outline-offset: 3px;
+}
+
+.shopify-review-rating__stars {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.shopify-review-rating__star {
+  position: relative;
+  display: inline-block;
+  width: var(--rating-size, 16px);
+  height: var(--rating-size, 16px);
+  font-size: var(--rating-size, 16px);
+  line-height: 1;
+}
+
+.shopify-review-rating__star .is-empty {
+  color: var(--rating-empty, #c5c5c5);
+}
+
+.shopify-review-rating__star .is-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--fill, 0) * 100%);
+  overflow: hidden;
+  color: var(--rating-star, #f5b301);
+  white-space: nowrap;
+}
+
+@media (max-width: 414px) {
+  .shopify-review-rating,
+  .shopify-review-rating__link {
+    max-width: 100%;
+  }
+}

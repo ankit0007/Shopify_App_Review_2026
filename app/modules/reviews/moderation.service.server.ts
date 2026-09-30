@@ -1,4 +1,5 @@
 import {db} from '../../db.server';
+import {invalidateRatingCache} from './rating-cache.server';
 
 export async function moderateReview(input: {
   shopId: string;
@@ -6,7 +7,10 @@ export async function moderateReview(input: {
   action: 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE';
   actorId?: string;
 }) {
-  const review = await db.review.findFirst({where: {id: input.reviewId, shopId: input.shopId}});
+  const review = await db.review.findFirst({
+    where: {id: input.reviewId, shopId: input.shopId},
+    include: {product: {select: {shopifyProductId: true}}, shop: {select: {shopDomain: true}}},
+  });
   if (!review) throw new Error('Review not found');
 
   const status = input.action === 'APPROVE'
@@ -42,5 +46,7 @@ export async function moderateReview(input: {
       data: {shopId: input.shopId, reviewId: review.id, action: input.action},
     });
     return updated;
+  }).finally(() => {
+    invalidateRatingCache(review.shop.shopDomain, review.product.shopifyProductId);
   });
 }

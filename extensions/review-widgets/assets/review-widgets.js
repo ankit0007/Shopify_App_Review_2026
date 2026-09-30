@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   if (window.__productReviewsMounted) return;
   window.__productReviewsMounted = true;
 
@@ -45,7 +45,7 @@
       for (let value = 1; value <= 5; value += 1) {
         const star = document.createElement('span');
         star.className = value <= rating ? 'is-filled' : 'is-empty';
-        star.textContent = '★';
+        star.textContent = 'â˜…';
         row.append(star);
       }
       return row;
@@ -63,7 +63,7 @@
         summary.append(stars(Math.round(averageValue)));
         const count = document.createElement('span');
         const total = Number.isFinite(totalValue) ? totalValue : reviews.length;
-        count.textContent = `${averageValue.toFixed(1)} out of 5 · ${total} review${total === 1 ? '' : 's'}`;
+        count.textContent = `${averageValue.toFixed(1)} out of 5 Â· ${total} review${total === 1 ? '' : 's'}`;
         summary.append(count);
       }
       reviews.forEach((review) => {
@@ -78,7 +78,7 @@
         if (showName) parts.push(review.displayName || 'Customer');
         if (showVerified && review.verifiedPurchase) parts.push('Verified purchase');
         if (showDate && review.submittedAt) parts.push(new Date(review.submittedAt).toLocaleDateString());
-        meta.textContent = parts.join(' · ');
+        meta.textContent = parts.join(' Â· ');
         item.append(stars(Number(review.rating) || 0), title, meta, body);
         list.append(item);
       });
@@ -146,7 +146,7 @@
         return;
       }
       if (submit) submit.disabled = true;
-      if (message) message.textContent = 'Sending review…';
+      if (message) message.textContent = 'Sending reviewâ€¦';
       fetch(endpoint, {method: 'POST', body})
         .then(async (response) => {
           const payload = await response.json().catch(() => null);
