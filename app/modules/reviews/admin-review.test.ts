@@ -30,8 +30,10 @@ describe('admin add review', () => {
 
   it('searches products for the authenticated shop only', () => {
     const route = readFileSync('app/routes/app.reviews.products.ts', 'utf8');
+    const loader = route.slice(route.indexOf('export async function loader'));
     const search = readFileSync('app/modules/reviews/admin-review.server.ts', 'utf8');
-    expect(route.indexOf('authenticate.admin')).toBeLessThan(route.indexOf('searchShopProducts'));
+    expect(loader.indexOf('authenticate.admin')).toBeGreaterThan(-1);
+    expect(loader.indexOf('authenticate.admin')).toBeLessThan(loader.indexOf('searchShopProducts'));
     expect(route).not.toContain('searchParams.get(\'shop\')');
     expect(search).toContain('products(first: 8, query: $query)');
     expect(productSearchQuery('Snowboard')).toBe('title:*Snowboard* OR handle:*Snowboard* OR sku:*Snowboard*');

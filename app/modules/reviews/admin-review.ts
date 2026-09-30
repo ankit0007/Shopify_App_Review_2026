@@ -65,8 +65,9 @@ export function parseAdminProduct(node: {
   priceRange?: {minVariantPrice?: {amount?: string | null; currencyCode?: string | null} | null} | null;
   variants?: {nodes?: Array<{sku?: string | null} | null> | null} | null;
 } | null | undefined): AdminProductChoice | null {
-  const id = canonicalProductId(node?.id);
-  const title = node?.title?.trim();
+  if (!node) return null;
+  const id = canonicalProductId(node.id);
+  const title = node.title?.trim();
   if (!id || !title) return null;
   const imageUrl = node.featuredImage?.url?.startsWith('https://') ? node.featuredImage.url : null;
   const sku = node.variants?.nodes?.find((variant) => variant?.sku?.trim())?.sku?.trim() ?? null;
