@@ -110,7 +110,7 @@
       countFormat: settings.countFormat, precision: settings.precision, emptyText: settings.emptyText, writeText: settings.writeText,
       hideEmpty: settings.hideWhenEmpty ? 'true' : 'false',
     });
-    node.style.cssText = `--rating-star:${settings.star};--rating-empty:${settings.empty};--rating-size:${settings.starSize}px;--rating-text:${settings.textSize}px;--rating-space:${settings.space}px;text-align:${settings.align}`;
+    node.style.cssText = `--sr-star:${settings.star};--sr-star-empty:${settings.empty};--rating-size:${settings.starSize}px;--rating-text:${settings.textSize}px;--rating-space:${settings.space}px;text-align:${settings.align}`;
     return node;
   }
 
