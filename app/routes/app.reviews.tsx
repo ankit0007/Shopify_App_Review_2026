@@ -1,8 +1,13 @@
-import {Form, useLoaderData} from 'react-router';
+import {useState} from 'react';
+import {data, Form, useLoaderData} from 'react-router';
 import {BlockStack, Card, EmptyState, InlineStack, Page, Text} from '@shopify/polaris';
+import {AddReviewDialog} from '../components/add-review-dialog';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
+import {adminReviewRequestAllowed, canonicalProductId} from '../modules/reviews/admin-review';
+import {createAdminReview, readAdminReviewForm, verifyShopProduct} from '../modules/reviews/admin-review.server';
 import {moderateReview} from '../modules/reviews/moderation.service.server';
+import {formatAverage} from '../modules/reviews/rating';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
@@ -29,16 +34,43 @@ export async function loader({request}: {request: Request}) {
         displayName: true,
         status: true,
         product: {select: {title: true}},
+        events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
       },
     })
     : [];
-  return {reviews, filters: {status: status ?? '', rating: rating ? String(rating) : '', search: search ?? ''}};
+  return {
+    reviews: reviews.map(({events, ...review}) => ({...review, adminAdded: events.length > 0})),
+    filters: {status: status ?? '', rating: rating ? String(rating) : '', search: search ?? ''},
+  };
 }
 
 export async function action({request}: {request: Request}) {
-  const {session} = await authenticate.admin(request);
+  const {session, admin} = await authenticate.admin(request);
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
   const form = await request.formData();
+  if (form.get('intent') === 'create') {
+    if (!adminReviewRequestAllowed(request)) {
+      return data({ok: false, message: 'Request could not be verified.', fieldErrors: {}}, {status: 403});
+    }
+    if (!shop) return data({ok: false, message: 'Shop is not available.', fieldErrors: {}}, {status: 400});
+    const productId = canonicalProductId(form.get('productId'));
+    const parsed = readAdminReviewForm(form);
+    const fieldErrors = parsed.ok ? {} : parsed.fieldErrors;
+    if (!productId) fieldErrors.productId = 'Select a product from this store.';
+    if (!parsed.ok || !productId) {
+      return data({ok: false, message: 'Check the highlighted fields.', fieldErrors}, {status: 400});
+    }
+    try {
+      const product = await verifyShopProduct(admin, productId);
+      if (!product) {
+        return data({ok: false, message: 'That product is not available in this store.', fieldErrors: {productId: 'That product is not available in this store.'}}, {status: 400});
+      }
+      const result = await createAdminReview({shopId: shop.id, shopDomain: session.shop, product, data: parsed.data});
+      return data(result, {status: result.ok ? 200 : 400});
+    } catch {
+      return data({ok: false, message: 'The review could not be added. Please try again.', fieldErrors: {}}, {status: 500});
+    }
+  }
   const reviewId = String(form.get('reviewId') ?? '');
   const decision = form.get('decision');
   if (shop && reviewId && ['APPROVE', 'REJECT', 'HIDE', 'DELETE', 'FEATURE'].includes(String(decision))) {
@@ -73,8 +105,30 @@ const statusColor: Record<string, {color: string; background: string}> = {
 
 export default function Reviews() {
   const {reviews, filters} = useLoaderData<typeof loader>();
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<null | {
+    productTitle: string;
+    rating: number;
+    displayName: string;
+    status: 'APPROVED' | 'PENDING';
+    averageRating: number | null;
+    reviewCount: number;
+  }>(null);
   return (
-    <Page title="Reviews">
+    <Page title="Reviews" primaryAction={{content: 'Add Review', onAction: () => setAdding(true)}}>
+      <AddReviewDialog open={adding} onClose={(review) => {
+        setAdding(false);
+        if (review) setNotice(review);
+      }} />
+      {notice ? (
+        <div role="status" style={successNotice}>
+          <strong>Review added successfully.</strong>
+          <p>{notice.productTitle} · {notice.rating} out of 5 stars · {notice.displayName} · {notice.status === 'APPROVED' ? 'Approved' : 'Pending'}</p>
+          <p>{notice.status === 'APPROVED'
+            ? `Public rating is now ${formatAverage(notice.averageRating) ?? '0.0'} from ${notice.reviewCount} ${notice.reviewCount === 1 ? 'review' : 'reviews'}.`
+            : 'This review is pending and is not included in the public rating.'}</p>
+        </div>
+      ) : null}
       <Form method="get">
         <InlineStack gap="200" wrap>
           <input name="q" defaultValue={filters.search} placeholder="Search reviews or products" />
@@ -105,9 +159,12 @@ export default function Reviews() {
                 <BlockStack gap="300">
                   <InlineStack align="space-between" blockAlign="center">
                     <Text as="h2" variant="headingMd">{review.product.title}</Text>
-                    <span style={{padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: tone.color, background: tone.background}}>
-                      {review.status}
-                    </span>
+                    <InlineStack gap="200">
+                      {review.adminAdded ? <span style={adminBadge}>Admin added</span> : null}
+                      <span style={{padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: tone.color, background: tone.background}}>
+                        {review.status}
+                      </span>
+                    </InlineStack>
                   </InlineStack>
                   <Stars rating={review.rating} />
                   <Text as="p" fontWeight="semibold">{review.displayName || 'Customer'}</Text>
@@ -175,3 +232,5 @@ const secondaryButton = {
 
 const deleteButton = {...secondaryButton, borderColor: '#991b1b', color: '#991b1b'};
 const filterButton = {...approveButton, background: '#1d4ed8'};
+const adminBadge = {padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: '#1e3a8a', background: '#dbeafe'};
+const successNotice = {padding: 16, borderRadius: 12, background: '#dcfce7', color: '#166534', display: 'grid', gap: 4};
