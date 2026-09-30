@@ -44,7 +44,7 @@ export async function loader({request, params}: {request: Request; params: {toke
     select: {id: true, status: true, product: {select: {shopifyProductId: true, title: true, imageUrl: true}}},
   });
   await db.reviewRequest.updateMany({
-    where: {id: {in: requests.map((item) => item.id)}, status: {in: ['SENT', 'SCHEDULED']}},
+    where: {id: {in: requests.map((item) => item.id)}, status: 'SENT'},
     data: {status: 'OPENED'},
   });
   return {

@@ -62,6 +62,7 @@ describe('shop review settings and fulfillment requests', () => {
     expect(worker).toContain('fulfillments/create');
     expect(worker).toContain('deliverReviewEmail');
     expect(worker).toContain('/review-request/');
+    expect(readFileSync('app/routes/review.$token.tsx', 'utf8')).toContain("status: 'SENT'");
     expect(sync).toContain('if (existing) continue');
     expect(sync).toContain('automaticRequestsEnabled');
     expect(widget).toContain('data.showWriteReviewButton !== true');

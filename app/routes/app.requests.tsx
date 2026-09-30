@@ -8,7 +8,7 @@ import {ADMIN_PAGE_SIZE, adminPage, pageCount} from '../modules/admin/page';
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   const url = new URL(request.url);
-  const allowedStatuses = ['SCHEDULED', 'SENT', 'FAILED', 'EXPIRED', 'SUBMITTED', 'CANCELLED'] as const;
+  const allowedStatuses = ['PENDING', 'SCHEDULED', 'SENT', 'OPENED', 'FAILED', 'EXPIRED', 'SUBMITTED', 'CANCELLED'] as const;
   const requestedStatus = url.searchParams.get('status');
   const status = allowedStatuses.find((value) => value === requestedStatus);
   const search = url.searchParams.get('q')?.trim();
@@ -76,7 +76,7 @@ export default function ReviewRequests() {
           <input name="q" defaultValue={filters.search} placeholder="Search product or customer" />
           <select name="status" defaultValue={filters.status} aria-label="Filter by status">
             <option value="">All statuses</option>
-            {['SCHEDULED', 'SENT', 'FAILED', 'EXPIRED', 'SUBMITTED', 'CANCELLED'].map((value) => <option key={value} value={value}>{value}</option>)}
+            {['PENDING', 'SCHEDULED', 'SENT', 'OPENED', 'FAILED', 'EXPIRED', 'SUBMITTED', 'CANCELLED'].map((value) => <option key={value} value={value}>{requestStatusLabel(value)}</option>)}
           </select>
           <button type="submit">Filter</button>
         </InlineStack>
