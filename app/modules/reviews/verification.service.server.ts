@@ -13,25 +13,26 @@ export async function verifyPurchase(input: {
       orderId: input.orderId,
       productId: input.productId,
       product: {shopId: input.shopId},
-      order: {
-        shopId: input.shopId,
-        status: 'fulfilled',
-        customerId: input.customerId,
-      },
+    order: {
+      shopId: input.shopId,
+      customerId: input.customerId,
     },
-    select: {
-      productId: true,
-      order: {select: {shopId: true, status: true, customerId: true}},
-    },
-  });
-  if (!item?.order) return false;
-  return purchaseMatchesReview({
-    shopId: input.shopId,
-    orderShopId: item.order.shopId,
-    orderStatus: item.order.status,
-    orderCustomerId: item.order.customerId,
-    customerId: input.customerId,
-    lineProductId: item.productId,
-    reviewProductId: input.productId,
-  });
+  },
+  select: {
+    productId: true,
+    fulfilledQuantity: true,
+    order: {select: {shopId: true, status: true, customerId: true}},
+  },
+});
+if (!item?.order) return false;
+return purchaseMatchesReview({
+  shopId: input.shopId,
+  orderShopId: item.order.shopId,
+  orderStatus: item.order.status,
+  orderCustomerId: item.order.customerId,
+  customerId: input.customerId,
+  lineProductId: item.productId,
+  reviewProductId: input.productId,
+  lineFulfilled: item.fulfilledQuantity > 0,
+});
 }

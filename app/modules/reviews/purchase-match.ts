@@ -8,10 +8,11 @@ export type PurchaseRelationship = {
   reviewProductId: string;
 };
 
-export function purchaseMatchesReview(input: PurchaseRelationship) {
+export function purchaseMatchesReview(input: PurchaseRelationship & {lineFulfilled?: boolean}) {
+  const fulfilled = input.orderStatus === 'fulfilled' || input.lineFulfilled === true;
   return Boolean(input.customerId) &&
     input.shopId === input.orderShopId &&
-    input.orderStatus === 'fulfilled' &&
+    fulfilled &&
     input.orderCustomerId === input.customerId &&
     input.lineProductId === input.reviewProductId;
 }

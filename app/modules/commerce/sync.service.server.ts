@@ -1,14 +1,10 @@
 import {db} from '../../db.server';
 import {encryptData} from '../../lib/encrypted-data.server';
 import {createReviewToken} from '../../lib/tokens.server';
+import {automaticRequestsEnabled, reviewableFulfilledLines, shopifyOrderId, type CommercePayload} from './fulfillment-lines';
 
-export type ShopifyOrderPayload = {
-  id?: number | string;
-  order_number?: number;
-  fulfillment_status?: string | null;
-  fulfilled_at?: string | null;
+export type ShopifyOrderPayload = CommercePayload & {
   customer?: {id?: number | string; email?: string; first_name?: string; last_name?: string} | null;
-  line_items?: Array<{product_id?: number | string; title?: string; quantity?: number}>;
 };
 
 function resourceId(value: string) {
@@ -43,7 +39,9 @@ export function toOrderWebhookPayload(order: {
 }
 
 export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayload) {
-  if (!payload.id) return;
+  const shopifyOrder = shopifyOrderId(payload);
+  if (!shopifyOrder) return;
+  const fulfilledLines = new Map(reviewableFulfilledLines(payload).map((line) => [line.productId, line]));
   await db.$transaction(async (tx) => {
     let customerId: string | undefined;
     if (payload.customer?.id) {
@@ -63,45 +61,55 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
       customerId = customer.id;
     }
 
+    const existingOrder = await tx.order.findUnique({
+      where: {shopId_shopifyOrderId: {shopId, shopifyOrderId: shopifyOrder}},
+      select: {customerId: true},
+    });
+    customerId = customerId ?? existingOrder?.customerId ?? undefined;
+
     const order = await tx.order.upsert({
-      where: {shopId_shopifyOrderId: {shopId, shopifyOrderId: String(payload.id)}},
+      where: {shopId_shopifyOrderId: {shopId, shopifyOrderId: shopifyOrder}},
       update: {
         orderNumber: String(payload.order_number ?? ''),
-        status: payload.fulfillment_status,
-        fulfillmentDate: payload.fulfilled_at
-          ? new Date(payload.fulfilled_at)
-          : payload.fulfillment_status === 'fulfilled' ? new Date() : undefined,
+        status: payload.fulfillment_status ?? payload.status,
+        fulfillmentDate: payload.fulfilled_at ? new Date(payload.fulfilled_at) : fulfilledLines.size ? new Date() : undefined,
+        ...(customerId ? {customerId} : {}),
       },
       create: {
         shopId,
-        shopifyOrderId: String(payload.id),
+        shopifyOrderId: shopifyOrder,
         orderNumber: String(payload.order_number ?? ''),
-        status: payload.fulfillment_status,
-        fulfillmentDate: payload.fulfilled_at
-          ? new Date(payload.fulfilled_at)
-          : payload.fulfillment_status === 'fulfilled' ? new Date() : undefined,
+        status: payload.fulfillment_status ?? payload.status,
+        fulfillmentDate: payload.fulfilled_at ? new Date(payload.fulfilled_at) : fulfilledLines.size ? new Date() : undefined,
         customerId,
       },
     });
 
+    let queuedEmail = false;
     for (const item of payload.line_items ?? []) {
-      if (!item.product_id) continue;
+      if (!item.product_id || item.gift_card) continue;
+      const shopifyProductId = String(item.product_id);
+      if (!/^\d{1,20}$/.test(shopifyProductId)) continue;
+      const fulfilled = fulfilledLines.get(shopifyProductId);
       const product = await tx.product.upsert({
-        where: {shopId_shopifyProductId: {shopId, shopifyProductId: String(item.product_id)}},
+        where: {shopId_shopifyProductId: {shopId, shopifyProductId}},
         update: {title: item.title ?? 'Untitled product'},
-        create: {shopId, shopifyProductId: String(item.product_id), title: item.title ?? 'Untitled product'},
+        create: {shopId, shopifyProductId, title: item.title ?? fulfilled?.title ?? 'Untitled product'},
       });
+      const currentItem = await tx.orderItem.findUnique({
+        where: {orderId_productId: {orderId: order.id, productId: product.id}},
+        select: {fulfilledQuantity: true},
+      });
+      const fulfilledQuantity = Math.max(currentItem?.fulfilledQuantity ?? 0, fulfilled?.quantity ?? 0);
       await tx.orderItem.upsert({
         where: {orderId_productId: {orderId: order.id, productId: product.id}},
-        update: {quantity: item.quantity ?? 1},
-        create: {orderId: order.id, productId: product.id, quantity: item.quantity ?? 1},
+        update: {quantity: item.quantity ?? 1, fulfilledQuantity},
+        create: {orderId: order.id, productId: product.id, quantity: item.quantity ?? 1, fulfilledQuantity},
       });
 
-      if (payload.fulfillment_status !== 'fulfilled' || !customerId) continue;
-      const shop = await tx.shop.findUnique({where: {id: shopId}, select: {uninstalledAt: true}});
-      if (shop?.uninstalledAt) continue;
-      const settings = await tx.shopSettings.findUnique({where: {shopId}});
-      if (settings?.automaticRequests === false) continue;
+      if (!fulfilled || !customerId) continue;
+      const shop = await tx.shop.findUnique({where: {id: shopId}, select: {uninstalledAt: true, settings: {select: {automaticRequests: true, requestDelayDays: true, requestExpirationDays: true}}}});
+      if (shop?.uninstalledAt || !automaticRequestsEnabled(shop?.settings?.automaticRequests)) continue;
       const optedOut = await tx.consent.findFirst({
         where: {shopId, customerId, purpose: 'review_request', granted: false},
         select: {id: true},
@@ -118,8 +126,8 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
       });
       if (existing) continue;
       const reviewToken = createReviewToken();
-      const scheduledAt = new Date(Date.now() + (settings?.requestDelayDays ?? 7) * 86_400_000);
-      const expiresAt = new Date(scheduledAt.getTime() + (settings?.requestExpirationDays ?? 30) * 86_400_000);
+      const scheduledAt = new Date(Date.now() + (shop?.settings?.requestDelayDays ?? 7) * 86_400_000);
+      const expiresAt = new Date(scheduledAt.getTime() + (shop?.settings?.requestExpirationDays ?? 30) * 86_400_000);
       await tx.reviewRequest.create({
         data: {
           shopId,
@@ -128,11 +136,12 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
           customerId,
           tokenHash: reviewToken.tokenHash,
           tokenEncrypted: encryptData(reviewToken.token),
-          status: 'SCHEDULED',
+          status: queuedEmail ? 'PENDING' : 'SCHEDULED',
           scheduledAt,
           expiresAt,
         },
       });
+      queuedEmail = true;
     }
   });
 }
