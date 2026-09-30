@@ -333,3 +333,53 @@ Structured data was inspected in the theme extension. It does not emit Product o
 | Duplicate widget test | PARTIAL | `widget-placement.test.ts` still keeps the section widget and removes the embed for the same product. Rating nodes use a separate script and the `shopify-review-rating` class. Both blocks were not enabled together on the development store. |
 | Security test | PASS | Vitest rejects an invalid shop, a missing signature, a tampered signature, a SQL-like product id, a `<script>` product id, a bad GID, 51 ids, and a query longer than 4000 characters. The batch response fixture contains average and count only. The live App Proxy was not called. |
 | Regression test | PASS | `npm test` (52), `npm run typecheck`, `npm run lint`, `npm run build`, `npx prisma validate`, `npx prisma generate`, and `shopify app build` passed. Theme check reported no errors after the rating script was split into `product-rating.js` so each app-block JavaScript file stays under 10 KB. |
+
+## Flexible Product Rating Placement E2E Test
+
+Date: 2026-10-01
+
+The product-page rating stays where the merchant places the Product rating app block. The script does not move that block and does not match product titles. Card ratings are a separate fallback from the Product ratings app embed.
+
+### Supported placement
+
+- **Product page:** In the theme editor, open the product template, add the Product rating block, and drag it among the other blocks in the product information section. That block is the only rating for that product on the product page. If the Product ratings embed is also enabled, it removes its copy for that product. Clicking the summary still scrolls to the Product reviews section when that section is on the page.
+- **Product card, when the theme allows an app block:** Add the same Product rating block inside the product card section. It uses that card's Liquid `product.id` and is not moved.
+- **Collection, search, featured, related, and recommended grids:** Enable the Product ratings app embed. It places one compact rating per card. Collection and search products rendered by Liquid already carry `product.id`. Cards added later are matched by a `/products/{handle}` link, or by a `data-product-id` already on the card. A handle is resolved to a numeric id through the storefront `/products/{handle}.js` response, then included in the existing batch ratings request. A title is never used as an identifier.
+- **Position inside a card:** after the product title, otherwise before the price, otherwise inside the product-information container. Ratings are not placed over images. If none of those containers can be identified, the card is left unchanged.
+- **Duplicates:** a card receives `data-shopify-review-rating-mounted` after a rating is added. The observer watches for new card markup and ignores nodes the rating script itself inserted, so it does not keep injecting the same rating.
+- **Settings:** the product block and the embed use the same setting list. Values are not hard-coded.
+- **Limits:** one `GET /api/public/ratings` batch contains at most 50 product ids. Ids already fetched on the page are not requested again.
+
+Local validation on 2026-10-01 passed: `npm test` (59), `npm run typecheck`, `npm run lint`, `npm run build`, `npx prisma validate`, `npx prisma generate`, and `shopify app build`. Theme check reported no errors or warnings for this extension.
+
+### Development-store verification
+
+Date: 2026-10-01
+
+Store: `sftp-7qtjiorq.myshopify.com`. Live theme: `test-data` (`158207312037`).
+
+`shopify app deploy --allow-updates` released app version `product-reviews-5` to the Product Reviews app. That release did not SSH to production, did not change the production host, and did not change `application_url` in `shopify.app.toml`. The Shopify CLI is authenticated as the app owner. The development store is still marked “Not yet configured” inside `shopify app info`, but theme commands can read this store.
+
+A direct `GET https://shopifyreview.it3.in/api/public/ratings?productIds=1` returned HTTP 404 from nginx. The ratings route exists only in the local app. The app proxy still targets that host, so the released extension cannot load rating numbers until that web app is deployed. Production deployment was not performed.
+
+The storefront redirects to `/password`. This browser session does not have the store password. The theme editor URL redirected to Shopify login, and the page reported that captcha could not load. No product, collection, search, or settings screen was rendered.
+
+The live theme JSON, pulled read-only, contains the Product reviews block `review-summary` on the product template and the enabled `review-embed` app embed. It does not contain the Product rating block or the Product ratings embed. The product template order is main, then customer reviews, then related products. The related-products section has the theme’s own `show_rating` set to false.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Product page | NOT TESTED | The storefront stopped at the password page. The product template does not yet include the Product rating block. |
+| Theme Editor placement | NOT TESTED | `https://admin.shopify.com/store/sftp-7qtjiorq/themes/158207312037/editor` redirected to Shopify login. Captcha did not load. The block was not added or moved. |
+| Collection | NOT TESTED | No collection page was opened. The Product ratings embed is not enabled in `settings_data.json`. |
+| Search | NOT TESTED | No search results page was opened. |
+| Featured products | NOT TESTED | The homepage was not opened past the password page. |
+| Recommendations | NOT TESTED | The product template has a related-products section, but the page was not rendered and the rating embed is not enabled. |
+| Dynamic loading | NOT TESTED | No filter, pagination, or section refresh was clicked. |
+| Duplicate prevention | NOT TESTED | The new rating block and rating embed were not both enabled on a rendered product page. The theme JSON still enables both the Product reviews block and the review embed. |
+| Zero-review state | NOT TESTED | No product page was rendered. |
+| Mobile | NOT TESTED | No storefront viewport was measured. |
+| Accessibility | NOT TESTED | No rendered rating was available for the accessibility tree, keyboard, or screen reader. |
+| Settings | NOT TESTED | Theme editor settings were not opened, so no color, size, count, or empty-text change was seen on the storefront. |
+| Security | PARTIAL | Local tests still reject a bad shop, a bad signature, malformed ids, and another shop’s product id. The live ratings URL returned HTTP 404, so this session did not observe App Proxy signature behavior for that route. No customer email, token, or database id was present in that 404 response. |
+| Performance | NOT TESTED | No storefront network log was captured. The ratings request could not be batched in the browser because the page did not load. |
+| Regression | PASS | This verification did not change application code. The earlier local run in this session passed `npm test` (59), typecheck, lint, build, Prisma validate, Prisma generate, and `shopify app build`. |

@@ -144,10 +144,20 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .4rem;
+  gap: .25rem .4rem;
   max-width: 100%;
   color: inherit;
   text-decoration: none;
+}
+
+.shopify-review-rating__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shopify-review-rating[data-placement="embed"] {
+  margin-top: .25rem;
+  margin-bottom: .25rem;
 }
 
 .shopify-review-rating__link:focus-visible {
@@ -183,7 +193,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 414px) {
+@media (max-width: 989px) {
   .shopify-review-rating,
   .shopify-review-rating__link {
     max-width: 100%;

@@ -1,13 +1,14 @@
 {% comment %}
   Compact rating only. This snippet must not render the full review list or form.
+  data-product-title is intentionally omitted. Placement uses the product id.
 {% endcomment %}
 <div
   class="shopify-review-rating"
   {% if hidden %}hidden{% endif %}
   data-product-rating
   data-product-id="{{ product.id }}"
+  data-shopify-review-rating-product-id="{{ product.id }}"
   data-product-handle="{{ product.handle | escape }}"
-  data-product-title="{{ product.title | escape }}"
   data-placement="{{ placement | default: 'section' | escape }}"
   data-click="{% if click_to_reviews %}true{% else %}false{% endif %}"
   data-show-count="{% if show_count %}true{% else %}false{% endif %}"
