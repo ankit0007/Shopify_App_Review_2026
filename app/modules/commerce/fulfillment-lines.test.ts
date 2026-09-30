@@ -1,0 +1,100 @@
+import {readFileSync} from 'node:fs';
+import {describe, expect, it} from 'vitest';
+import {adminPage, ADMIN_PAGE_SIZE, pageCount} from '../admin/page';
+import {automaticRequestsEnabled, requestStatusForLine, reviewableFulfilledLines, showWriteReviewButtonEnabled} from './fulfillment-lines';
+import {reviewLinkState, sameOrderRequest} from '../reviews/request-access';
+import {distributionAfterReview} from '../reviews/admin-review';
+import {histogramBarPercents} from '../reviews/histogram';
+import {includeInRating, summarizeRatingCounts} from '../reviews/rating';
+import {invalidateRatingCache, readRatingCache, writeRatingCache} from '../reviews/rating-cache.server';
+
+const order = {
+  id: '100',
+  fulfillment_status: 'partial',
+  line_items: [
+    {product_id: 1, title: 'Product A', quantity: 1, fulfillment_status: 'fulfilled'},
+    {product_id: 2, title: 'Product B', quantity: 1, fulfillment_status: 'fulfilled'},
+    {product_id: 3, title: 'Product C', quantity: 1, fulfillment_status: null},
+    {product_id: 4, title: 'Gift Card', quantity: 1, gift_card: true, fulfillment_status: 'fulfilled'},
+    {title: 'Shipping', quantity: 1, fulfillment_status: 'fulfilled'},
+  ],
+};
+
+describe('shop review settings and fulfillment requests', () => {
+  it('defaults a new shop to hidden write button and no automatic emails', () => {
+    const schema = readFileSync('prisma/schema.prisma', 'utf8');
+    expect(schema).toMatch(/showWriteReviewButton\s+Boolean\s+@default\(false\)/);
+    expect(schema).toMatch(/automaticRequests\s+Boolean\s+@default\(false\)/);
+    expect(showWriteReviewButtonEnabled(undefined)).toBe(false);
+    expect(showWriteReviewButtonEnabled(false)).toBe(false);
+    expect(automaticRequestsEnabled(undefined)).toBe(false);
+    expect(automaticRequestsEnabled(false)).toBe(false);
+  });
+
+  it('lets the merchant enable each setting separately', () => {
+    expect(showWriteReviewButtonEnabled(true)).toBe(true);
+    expect(automaticRequestsEnabled(true)).toBe(true);
+    expect(showWriteReviewButtonEnabled(false)).toBe(false);
+  });
+
+  it('includes only fulfilled products and handles a later partial fulfillment', () => {
+    expect(reviewableFulfilledLines(order).map((line) => line.title)).toEqual(['Product A', 'Product B']);
+    const second = reviewableFulfilledLines({
+      id: 'fulfillment-2',
+      order_id: '100',
+      status: 'success',
+      line_items: [{product_id: 3, title: 'Product C', quantity: 1}],
+    });
+    expect(second.map((line) => line.productId)).toEqual(['3']);
+    expect(requestStatusForLine(0)).toBe('SCHEDULED');
+    expect(requestStatusForLine(1)).toBe('PENDING');
+  });
+
+  it('keeps webhook, email, token, and rating behavior on the existing paths', () => {
+    const webhooks = readFileSync('app/routes/webhooks.ts', 'utf8');
+    const worker = readFileSync('app/worker.ts', 'utf8');
+    const sync = readFileSync('app/modules/commerce/sync.service.server.ts', 'utf8');
+    const widget = readFileSync('app/storefront/review-widgets.js', 'utf8');
+    const privacy = readFileSync('app/modules/privacy/privacy.service.server.ts', 'utf8');
+    expect(webhooks).toContain('verifyWebhookHmac');
+    expect(webhooks).toContain('P2002');
+    expect(webhooks).not.toContain('deliverReviewEmail');
+    expect(worker).toContain('fulfillments/create');
+    expect(worker).toContain('deliverReviewEmail');
+    expect(worker).toContain('/review-request/');
+    expect(sync).toContain('if (existing) continue');
+    expect(sync).toContain('automaticRequestsEnabled');
+    expect(widget).toContain('data.showWriteReviewButton !== true');
+    expect(privacy).toContain('reviewRequest.deleteMany');
+    expect(readFileSync('app/modules/reviews/review.service.server.ts', 'utf8')).toContain('verifyPurchase');
+    expect(readFileSync('app/modules/reviews/moderation.service.server.ts', 'utf8')).toContain('invalidateRatingCache');
+    expect(readFileSync('app/modules/email/email.service.server.ts', 'utf8')).toContain('Email provider is not configured');
+  });
+
+  it('rejects an invalid, expired, or cross-order review link', () => {
+    expect(reviewLinkState(null)).toBe('invalid');
+    expect(reviewLinkState({status: 'SENT', expiresAt: new Date('2020-01-01')}, new Date('2026-01-01'))).toBe('expired');
+    expect(reviewLinkState({status: 'SENT', expiresAt: new Date('2027-01-01')}, new Date('2026-01-01'))).toBe('ready');
+    const anchor = {shopId: 'shop-a', orderId: 'order-a', customerId: 'customer-a'};
+    expect(sameOrderRequest(anchor, {...anchor})).toBe(true);
+    expect(sameOrderRequest(anchor, {...anchor, shopId: 'shop-b'})).toBe(false);
+    expect(sameOrderRequest(anchor, {...anchor, orderId: 'order-b'})).toBe(false);
+  });
+
+  it('pages the admin review list five at a time and keeps approved ratings on the existing calculation', () => {
+    expect(ADMIN_PAGE_SIZE).toBe(5);
+    expect(adminPage('2')).toBe(2);
+    expect(adminPage('0')).toBe(1);
+    expect(adminPage('nope')).toBe(1);
+    expect(pageCount(6)).toBe(2);
+    const before = {'5': 1, '4': 2, '3': 0, '2': 1, '1': 0};
+    const after = distributionAfterReview(before, 5, 'APPROVED');
+    expect(after['5']).toBe(2);
+    expect(histogramBarPercents(after)['5']).toBe(100);
+    expect(includeInRating({status: 'PENDING', deletedAt: null, shopId: 'shop-a', productId: 'product-a'}, 'shop-a', 'product-a')).toBe(false);
+    expect(summarizeRatingCounts([{rating: 5, count: 2}, {rating: 4, count: 2}, {rating: 2, count: 1}]).reviewCount).toBe(5);
+    writeRatingCache('a.myshopify.com', '1', {averageRating: 3.8, reviewCount: 4}, 1_000);
+    invalidateRatingCache('a.myshopify.com', '1');
+    expect(readRatingCache('a.myshopify.com', '1', 1_000)).toBeUndefined();
+  });
+});

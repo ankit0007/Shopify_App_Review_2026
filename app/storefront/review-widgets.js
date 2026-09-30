@@ -89,7 +89,7 @@
       empty.append(stars(0, 'empty'));
       empty.append(el('h3', '', root.dataset.empty || 'No reviews yet'));
       empty.append(el('p', '', root.dataset.emptyBody || 'Be the first to share your thoughts on this product.'));
-      if (root.dataset.showForm !== 'false') {
+      if (data.showWriteReviewButton === true && root.dataset.showForm !== 'false') {
         const button = el('button', 'sr-btn', 'Write the first review');
         button.type = 'button';
         button.addEventListener('click', () => openForm(root, button));
@@ -134,7 +134,7 @@
     const write = el('button', 'sr-btn', root.dataset.write || 'Write a review');
     write.type = 'button';
     write.setAttribute('aria-expanded', 'false');
-    write.hidden = root.dataset.showForm === 'false';
+    write.hidden = data.showWriteReviewButton !== true || root.dataset.showForm === 'false';
     write.addEventListener('click', () => openForm(root, write));
     const viewAll = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
     viewAll.href = '/apps/shopify-review/reviews';

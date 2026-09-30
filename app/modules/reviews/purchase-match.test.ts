@@ -21,6 +21,8 @@ describe('verified purchase relationship', () => {
     expect(purchaseMatchesReview({...valid, customerId: 'customer-b'})).toBe(false);
     expect(purchaseMatchesReview({...valid, orderShopId: 'shop-b'})).toBe(false);
     expect(purchaseMatchesReview({...valid, orderStatus: 'paid'})).toBe(false);
+    expect(purchaseMatchesReview({...valid, orderStatus: 'partial', lineFulfilled: true})).toBe(true);
+    expect(purchaseMatchesReview({...valid, orderStatus: 'partial'})).toBe(false);
     expect(purchaseMatchesReview({...valid, customerId: null})).toBe(false);
   });
 });

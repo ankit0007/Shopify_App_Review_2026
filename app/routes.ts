@@ -7,6 +7,7 @@ export default [
   route('health', 'routes/health.ts'),
   route('webhooks', 'routes/webhooks.ts'),
   route('review/:token', 'routes/review.$token.tsx'),
+  route('review-request/:token', 'routes/review-request.$token.tsx'),
   route('api/public/products/:productId/reviews', 'routes/api.public.products.$productId.reviews.ts'),
   route('api/public/reviews', 'routes/api.public.reviews.ts'),
   route('api/public/storefront/:file', 'routes/api.public.storefront.$file.ts'),

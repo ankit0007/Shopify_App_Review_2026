@@ -27,6 +27,11 @@ export async function loader({params, request}: {params: {productId?: string}; r
   if (!verifyAppProxySignature(url, config.SHOPIFY_API_SECRET)) {
     return Response.json({success: false, error: {code: 'INVALID_SIGNATURE', message: 'Request signature is invalid'}}, {status: 401});
   }
+  const shopSettings = await db.shop.findUnique({
+    where: {shopDomain},
+    select: {settings: {select: {showWriteReviewButton: true}}},
+  });
+  const showWriteReviewButton = shopSettings?.settings?.showWriteReviewButton === true;
   const requestedLimit = Number(url.searchParams.get('limit') ?? 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 20) : 10;
   const listQuery = parseListQuery(url.searchParams.get('sort'), url.searchParams.get('rating'));
@@ -42,7 +47,7 @@ export async function loader({params, request}: {params: {productId?: string}; r
     where: {shopifyProductId: productId, shop: {shopDomain}},
     select: {id: true},
   });
-  const empty = {reviews: [], nextCursor: null, averageRating: null, totalReviews: 0, distribution: emptyDistribution()};
+  const empty = {reviews: [], nextCursor: null, averageRating: null, totalReviews: 0, distribution: emptyDistribution(), showWriteReviewButton};
   if (!product) return ok(empty, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
 
   const orderBy = listQuery.sort === 'highest'
@@ -88,6 +93,7 @@ export async function loader({params, request}: {params: {productId?: string}; r
     averageRating: summary.averageRating,
     totalReviews: summary.reviewCount,
     distribution,
+    showWriteReviewButton,
   }, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
 }
 

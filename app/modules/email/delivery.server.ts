@@ -4,7 +4,7 @@ import {db} from '../../db.server';
 import {decryptSecret} from '../../lib/secret-box';
 import {assertSmtpMode, sanitizeSmtpError} from './smtp-config';
 import {NodemailerSmtpTransport, SMTPEmailProvider, type SmtpConnection} from './smtp-provider.server';
-import {renderTemplate, templateTypeForReminder} from './template';
+import {renderTemplate, templateTypeForReminder, escapeHtml} from './template';
 import {createEmailService, type EmailService} from './email.service.server';
 import {blockedByAcceptedDelivery} from './delivery-state';
 import {decideRetry} from './retry';
@@ -74,7 +74,7 @@ export async function deliverReviewEmail(input: {
   });
   const message = rendered ?? {
     subject: 'How was your purchase from {{shopName}}?',
-    html: `<p>Hi {{customerName}},</p><p>Your order has been fulfilled. We would love to hear what you think about the products you received.</p><p>${input.productName}</p><p><a href="${input.reviewUrl}">Write a review</a></p>`,
+    html: `<p>Hi,</p><p>Your order has been fulfilled. We would love to hear what you think about the products you received.</p><p>${escapeHtml(input.productName)}</p><p><a href="${escapeHtml(input.reviewUrl)}">Write a review</a></p>`,
     text: `Hi Customer, your order has been fulfilled. Review ${input.productName}: ${input.reviewUrl}`,
   };
   const delivery = await db.emailDelivery.create({

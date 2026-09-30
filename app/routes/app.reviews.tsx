@@ -8,6 +8,7 @@ import {adminReviewRequestAllowed, canonicalProductId} from '../modules/reviews/
 import {createAdminReview, readAdminReviewForm, verifyShopProduct} from '../modules/reviews/admin-review.server';
 import {moderateReview} from '../modules/reviews/moderation.service.server';
 import {formatAverage} from '../modules/reviews/rating';
+import {ADMIN_PAGE_SIZE, adminPage, pageCount} from '../modules/admin/page';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
@@ -15,32 +16,41 @@ export async function loader({request}: {request: Request}) {
   const status = url.searchParams.get('status');
   const rating = Number(url.searchParams.get('rating') ?? 0);
   const search = url.searchParams.get('q')?.trim();
+  const page = adminPage(url.searchParams.get('page'));
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
-  const reviews = shop
-    ? await db.review.findMany({
-      where: {
-        shopId: shop.id,
-        deletedAt: null,
-        ...(status && ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN'].includes(status) ? {status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN'} : {}),
-        ...(rating >= 1 && rating <= 5 ? {rating} : {}),
-        ...(search ? {OR: [{body: {contains: search, mode: 'insensitive'}}, {displayName: {contains: search, mode: 'insensitive'}}, {product: {title: {contains: search, mode: 'insensitive'}}}]} : {}),
-      },
-      orderBy: {submittedAt: 'desc'},
-      take: 50,
-      select: {
-        id: true,
-        rating: true,
-        body: true,
-        displayName: true,
-        status: true,
-        product: {select: {title: true}},
-        events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
-      },
-    })
-    : [];
+  const where = {
+    shopId: shop?.id ?? '',
+    deletedAt: null,
+    ...(status && ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN'].includes(status) ? {status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN'} : {}),
+    ...(rating >= 1 && rating <= 5 ? {rating} : {}),
+    ...(search ? {OR: [{body: {contains: search, mode: 'insensitive' as const}}, {displayName: {contains: search, mode: 'insensitive' as const}}, {product: {title: {contains: search, mode: 'insensitive' as const}}}]} : {}),
+  };
+  const [total, reviews] = shop
+    ? await Promise.all([
+      db.review.count({where}),
+      db.review.findMany({
+        where,
+        orderBy: {submittedAt: 'desc'},
+        skip: (page - 1) * ADMIN_PAGE_SIZE,
+        take: ADMIN_PAGE_SIZE,
+        select: {
+          id: true,
+          rating: true,
+          body: true,
+          displayName: true,
+          status: true,
+          product: {select: {title: true}},
+          events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
+        },
+      }),
+    ])
+    : [0, []];
   return {
     reviews: reviews.map(({events, ...review}) => ({...review, adminAdded: events.length > 0})),
     filters: {status: status ?? '', rating: rating ? String(rating) : '', search: search ?? ''},
+    page,
+    pages: pageCount(total),
+    total,
   };
 }
 
@@ -104,7 +114,7 @@ const statusColor: Record<string, {color: string; background: string}> = {
 };
 
 export default function Reviews() {
-  const {reviews, filters} = useLoaderData<typeof loader>();
+  const {reviews, filters, page, pages, total} = useLoaderData<typeof loader>();
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<null | {
     productTitle: string;
@@ -146,6 +156,7 @@ export default function Reviews() {
           <button type="submit" style={filterButton}>Filter</button>
         </InlineStack>
       </Form>
+      <p>{total} {total === 1 ? 'review' : 'reviews'}</p>
       {reviews.length === 0 ? (
         <EmptyState heading="No reviews yet" image="" fullWidth>
           Customer reviews from the product page will appear here. Approve a review to show it on the storefront.
@@ -196,6 +207,13 @@ export default function Reviews() {
           })}
         </BlockStack>
       )}
+      {pages > 1 ? (
+        <InlineStack gap="200">
+          {page > 1 ? <a href={reviewPageHref(filters, page - 1)}>Previous</a> : null}
+          <span>Page {page} of {pages}</span>
+          {page < pages ? <a href={reviewPageHref(filters, page + 1)}>Next</a> : null}
+        </InlineStack>
+      ) : null}
     </Page>
   );
 }
@@ -234,3 +252,13 @@ const deleteButton = {...secondaryButton, borderColor: '#991b1b', color: '#991b1
 const filterButton = {...approveButton, background: '#1d4ed8'};
 const adminBadge = {padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: '#1e3a8a', background: '#dbeafe'};
 const successNotice = {padding: 16, borderRadius: 12, background: '#dcfce7', color: '#166534', display: 'grid', gap: 4};
+
+function reviewPageHref(filters: {status: string; rating: string; search: string}, page: number) {
+  const params = new URLSearchParams();
+  if (filters.search) params.set('q', filters.search);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.rating) params.set('rating', filters.rating);
+  if (page > 1) params.set('page', String(page));
+  const query = params.toString();
+  return query ? `/app/reviews?${query}` : '/app/reviews';
+}
