@@ -87,7 +87,7 @@
     const average = count && Number.isFinite(Number(data.averageRating)) ? Number(data.averageRating) : null;
     if (!count) {
       const empty = el('div', 'sr-empty');
-      empty.append(stars(0, '26px'));
+      empty.append(stars(0, '24px'));
       empty.append(el('h3', '', root.dataset.empty || 'No reviews yet'));
       empty.append(el('p', '', root.dataset.emptyBody || 'Be the first to share your thoughts on this product.'));
       if (root.dataset.showForm !== 'false') {
@@ -103,7 +103,7 @@
     const score = el('div', 'sr__score');
     const avg = el('div', 'sr__avg', average.toFixed(1));
     avg.append(el('span', '', ' / 5'));
-    score.append(avg, stars(average, '18px'), el('p', 'sr__based', `Based on ${count} ${count === 1 ? 'review' : 'reviews'}`));
+    score.append(avg, stars(average, '22px'), el('p', 'sr__based', `Based on ${count} ${count === 1 ? 'review' : 'reviews'}`));
     const bars = el('div', 'sr__bars');
     if (root.dataset.showHistogram !== 'false') {
       [5, 4, 3, 2, 1].forEach((star) => {
@@ -157,7 +157,7 @@
       time.dateTime = review.submittedAt;
       head.append(time);
     }
-    const star = stars(review.rating, '16px');
+    const star = stars(review.rating, '18px');
     star.setAttribute('role', 'img');
     star.setAttribute('aria-label', `${review.rating} out of 5 stars`);
     article.append(head, star);

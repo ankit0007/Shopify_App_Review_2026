@@ -47,6 +47,9 @@ window.ShopifyReviewForm = function mountReviewForm(panel, root, close) {
     bodyError.hidden = body.value.trim().length >= 10;
     if (!rating || body.value.trim().length < 10 || !form.elements.displayName.value.trim()) return;
     const data = new FormData(form);
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
     try {
       const response = await fetch(`/apps/shopify-review/products/${root.dataset.productId}/reviews?shop=${encodeURIComponent(root.dataset.shop || '')}`, {method: 'POST', body: data});
       if (!response.ok) throw new Error('submit failed');
@@ -57,6 +60,8 @@ window.ShopifyReviewForm = function mountReviewForm(panel, root, close) {
       success.innerHTML = '<div class="tick"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f7b4b" stroke-width="2.5"><path d="m5 12 5 5 9-10"/></svg></div><h3>Thank you for your review!</h3><p>It will appear here once it has been approved.</p>';
       form.append(success);
     } catch {
+      submit.disabled = false;
+      submit.textContent = root.dataset.submit || 'Submit review';
       bodyError.hidden = false;
       bodyError.textContent = 'The review could not be sent. Please try again.';
     }

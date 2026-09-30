@@ -92,9 +92,9 @@
     return {
       click: data.click !== 'false', showCount: data.showCount !== 'false', showNumber: data.showNumber !== 'false',
       halfStars: data.halfStars !== 'false', countFormat: data.countFormat || 'words',
-      precision: data.precision || '1', emptyText: data.emptyText || 'Be the first to review', writeText: data.writeText || 'Write a review',
+      precision: data.precision || '1', emptyText: data.emptyText || 'Be the first to review.', writeText: data.writeText || 'Write a review',
       hideWhenEmpty: data.hideEmpty === 'true',
-      star: data.star || '#f5b301', empty: data.empty || '#d9dce1', starSize: data.starSize || '20',
+      star: data.star || '#F5B301', empty: data.empty || '#D9DDE3', starSize: data.starSize || '20',
       textSize: data.textSize || '14', space: data.space || '8', align: data.align || 'left',
     };
   }
@@ -166,7 +166,7 @@
     const control = document.createElement(click && !nested && target ? 'a' : 'div');
     control.className = 'sr-rating__link';
     control.setAttribute('aria-label', average == null
-      ? (node.dataset.emptyText || 'Be the first to review')
+      ? (node.dataset.emptyText || 'Be the first to review.')
       : `Rated ${average.toFixed(1)} out of 5 stars, ${count} ${count === 1 ? 'review' : 'reviews'}`);
     if (control instanceof HTMLAnchorElement && target) {
       control.href = `#${target.id}`;
@@ -178,7 +178,7 @@
     }
     const text = document.createElement('span');
     text.className = 'sr-rating__text';
-    if (average == null) text.textContent = node.dataset.emptyText || 'Be the first to review';
+    if (average == null) text.textContent = node.dataset.emptyText || 'Be the first to review.';
     else {
       if (showNumber) {
         const number = document.createElement('strong');

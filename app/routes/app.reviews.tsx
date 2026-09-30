@@ -51,11 +51,15 @@ export async function action({request}: {request: Request}) {
   return null;
 }
 
+const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
+
 function Stars({rating}: {rating: number}) {
   return (
-    <span aria-label={`${rating} out of 5 stars`} style={{display: 'inline-flex', gap: 2, fontSize: 22, lineHeight: 1}}>
+    <span aria-label={`${rating} out of 5 stars`} style={{display: 'inline-flex', gap: 2}}>
       {[1, 2, 3, 4, 5].map((value) => (
-        <span key={value} style={{color: value <= rating ? '#f5b301' : '#d1d5db'}}>★</span>
+        <svg key={value} viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d={STAR_PATH} fill={value <= rating ? '#F5B301' : '#D9DDE3'} />
+        </svg>
       ))}
     </span>
   );

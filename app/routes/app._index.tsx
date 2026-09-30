@@ -27,7 +27,7 @@ export default function Dashboard() {
               <Text as="h2" variant="headingMd">Customer reviews</Text>
               <Text as="p">{analytics?.approved ?? 0} approved · {analytics?.pending ?? 0} waiting · {analytics?.rejected ?? 0} rejected</Text>
               <Text as="p">{analytics?.total ?? 0} total · {analytics?.verified ?? 0} verified · average {(analytics?.averageRating ?? 0).toFixed(1)} / 5</Text>
-              <Text as="p">Ratings: 5★ {ratingDistribution[5]} · 4★ {ratingDistribution[4]} · 3★ {ratingDistribution[3]} · 2★ {ratingDistribution[2]} · 1★ {ratingDistribution[1]}</Text>
+              <Text as="p">Ratings: 5-star {ratingDistribution[5]} · 4-star {ratingDistribution[4]} · 3-star {ratingDistribution[3]} · 2-star {ratingDistribution[2]} · 1-star {ratingDistribution[1]}</Text>
               <Text as="p">{analytics?.photoReviews ?? 0} photo reviews · {analytics?.videoReviews ?? 0} video reviews</Text>
               <Text as="p">
                 {analytics?.requestConversion == null

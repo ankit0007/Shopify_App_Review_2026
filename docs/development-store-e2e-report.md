@@ -383,3 +383,46 @@ The live theme JSON, pulled read-only, contains the Product reviews block `revie
 | Security | PARTIAL | Local tests still reject a bad shop, a bad signature, malformed ids, and another shop’s product id. The live ratings URL returned HTTP 404, so this session did not observe App Proxy signature behavior for that route. No customer email, token, or database id was present in that 404 response. |
 | Performance | NOT TESTED | No storefront network log was captured. The ratings request could not be batched in the browser because the page did not load. |
 | Regression | PASS | This verification did not change application code. The earlier local run in this session passed `npm test` (59), typecheck, lint, build, Prisma validate, Prisma generate, and `shopify app build`. |
+
+## Final App Store Readiness
+
+Date: 2026-10-01
+
+Local gate: `npm test` 64 passed, `npm run typecheck`, `npm run lint`, `npm run build`, `npx prisma validate`, `npx prisma generate`, and `shopify app build` passed. Local `prisma migrate status` was pending `0008_review_list_index` until `prisma migrate deploy` applied it to local `shopify_review_dev`. After that, local status was up to date.
+
+Production backup before the release: `/opt/shopifyreview/backups/shopify_review_db_20260930T212418Z.dump` (69,552 bytes, 157 archive entries, `pg_restore -l` succeeded). Volume `shopifyreview-db-data` was present and was not deleted. Database container `shopifyreview-db` was not recreated.
+
+Production migration `0008_review_list_index` applied to `shopify_review_db`. `shopifyreview-app` and `shopifyreview-worker` were recreated on image `sha256:304c6dcaf7d5379f76a14d8eec7c90991cbb456dec7454055b14283b25c928ab`. Both reported healthy. The database container start time stayed `2026-09-28T17:44:15Z`. App port remained `127.0.0.1:3500`. The worker has no published port.
+
+Extension version `product-reviews-6` was released to the Product Reviews app: https://dev.shopify.com/dashboard/128982372/apps/429153976321/versions/1150390861825
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Local tests | PASS | 64 Vitest tests, typecheck, lint, production build, Prisma validate/generate, and `shopify app build` exited 0. |
+| Development store | PARTIAL | Store `sftp-7qtjiorq.myshopify.com` loaded without a password wall. Shopify Admin and the theme editor were not opened. |
+| Storefront product page | PASS | `The Collection Snowboard: Liquid` showed one compact rating, `Rated 4.0 out of 5 stars, 2 reviews`, directly under the title in the product-info app block. One Customer Reviews section showed `4.0 / 5`, `Based on 2 reviews`, histogram 5:0 and 4:2, two cards (Anwit, Ankit Saxena), no empty title, and no verified badge. |
+| Rating click | PASS | Activating the rating focused `#shopify-product-reviews-10746305609893` and moved that section to the top of the viewport. |
+| Review form | PASS | The form stayed closed until Write a review. Fields were rating, optional title, body, display name, and a honeypot. No email field. Submit showed `Sending...`, then `Thank you for your review! It will appear here once it has been approved.` The name `Store Test` did not appear in the public list. |
+| Star filter and sort | PARTIAL | The 4-star histogram button became pressed and showed `4 star only`. Both existing reviews are 4 stars, so the list stayed at 2 of 2. Sort options Most recent, Highest rating, and Lowest rating were present. Load more was not shown because both reviews fit on one page. |
+| Collection | PARTIAL | `/collections/automated-collection` rendered 6 product cards and no review form in the footer. Compact ratings were absent because the Product ratings embed is not enabled on this theme. |
+| Search | PARTIAL | Search for snowboard returned 13 products, no compact ratings, and no review form in the footer. |
+| Homepage cards | PARTIAL | Featured products rendered titles and prices. No compact rating was injected. The footer did not contain a review form. |
+| Recommendations | PARTIAL | Related products on the product page showed titles and prices only. |
+| Footer | PASS | Product, collection, search, and homepage footers did not contain Customer Reviews or Write a review. One full review section remained on the product template. |
+| Mobile | PARTIAL | A 390px-wide viewport stacked the product title under the image. The review histogram, Write a review, and sort control were in the accessibility tree. The compact rating was not visible in that top-of-page screenshot. |
+| Admin | PASS | Unauthenticated `GET /admin` returned 302 to `/admin/login`. Login returned 302 with `platform_admin` cookie flags HttpOnly, Secure, and SameSite=Lax. `/admin`, `/admin/dashboard`, `/admin/smtp`, `/admin/email-templates`, `/admin/email-logs`, `/admin/audit-log`, and `/admin/system` returned 200. The password was not present in those HTML responses. |
+| SMTP | PARTIAL | The SMTP password box did not use the configured placeholder `---`, and the HTML did not contain a password or `encryptedPassword`. Production `EMAIL_PROVIDER` is `disabled`. No test email was sent. |
+| Email templates | NOT TESTED | The templates page returned 200. Template HTML escaping was not exercised in the browser during this pass. |
+| Email logs | NOT TESTED | The logs page returned 200. No new delivery was created. |
+| Audit | NOT TESTED | The audit page returned 200. Individual audit rows were not inspected. |
+| Unsubscribe | NOT TESTED | No unsubscribe token was exercised against production. |
+| Worker | PASS | `shopifyreview-worker` health became healthy on the new image and stayed healthy after the app recreate. No email was sent because the provider is disabled. |
+| GDPR | NOT TESTED | Compliance topics are in `shopify.app.toml` and were included in the `product-reviews-6` release. A live webhook was not sent. |
+| Billing | PARTIAL | The app does not create a charge during tests. Production env has no `SHOPIFY_PARTNER_ORG_ID` and no `SHOPIFY_APP_ID`. Partner pricing handles were not created. |
+| Security | PASS | Unsigned ratings with a valid shop returned 401 `INVALID_SIGNATURE`. An invalid shop returned 400 `INVALID_SHOP`. A request without a shop returned 400 `MISSING_SHOP`. None of those bodies contained a credential. |
+| Production health | PASS | `https://shopifyreview.it3.in/` returned 200. `/health` returned `{"success":true,"data":{"status":"ok","database":"ok"}}`. `/api/public/ratings` is served by the app and is no longer HTTP 404. |
+| Existing-site safety | PASS | After the release, these returned HTTP 200 and their containers kept their earlier start times: artifyanni.com, crmassistant.it3.in, instagramfeed.it3.in, reports.it3.in, sftpshopify.it3.in. |
+| Partner Dashboard | PARTIAL | App URL, OAuth callback, scopes, App Proxy, and compliance topics are in the released app version. Protected customer data approval, Free and Pro pricing, support email, privacy policy, and terms were not confirmed in the dashboard. |
+| App Store listing | NOT TESTED | Icon, screenshots, descriptions, demo video, support URL, privacy policy, terms, and review credentials are not in the repository and were not submitted. |
+
+A pending storefront review titled `Readiness check` from `Store Test` was submitted on The Collection Snowboard: Liquid. It is not public. Approve or delete it from the merchant Reviews screen. The installed Product rating block still has its saved star size of 16px; the block default for a newly added block is 20px. The theme editor was not used to change that saved value.

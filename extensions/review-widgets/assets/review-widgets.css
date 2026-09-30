@@ -1,7 +1,7 @@
 .shopify-reviews,
 .shopify-review-rating {
-  --sr-star: #f5b301;
-  --sr-star-empty: #d9dce1;
+  --sr-star: #F5B301;
+  --sr-star-empty: #D9DDE3;
   --sr-accent: #111111;
   --sr-accent-text: #fff;
   --sr-text: currentColor;
@@ -31,6 +31,7 @@
 .sr-rating__link {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 8px;
   min-height: 44px;
   border-radius: 8px;
@@ -53,14 +54,17 @@
 
 .sr-stars {
   display: inline-flex;
+  flex-wrap: nowrap;
   gap: 2px;
   line-height: 0;
+  --s: var(--rating-size, 20px);
 }
 
 .sr-star {
   position: relative;
-  width: var(--rating-size, var(--s, 18px));
-  height: var(--rating-size, var(--s, 18px));
+  width: var(--s, 20px);
+  height: var(--s, 20px);
+  flex: 0 0 auto;
   display: inline-block;
 }
 
@@ -79,6 +83,12 @@
   inset: 0 auto 0 0;
   width: calc(var(--f, 0) * 100%);
   overflow: hidden;
+}
+
+.sr-star .fg svg {
+  width: var(--s, 20px);
+  height: var(--s, 20px);
+  max-width: none;
 }
 
 .sr-star .fg path {
@@ -165,8 +175,8 @@
 }
 
 .shopify-reviews .sr__bar-label svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   fill: var(--sr-star);
 }
 
@@ -502,6 +512,14 @@
 @media (max-width: 860px) {
   .shopify-reviews .sr__top {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 749px) {
+  .sr-star,
+  .sr-star .fg svg {
+    width: calc(var(--s, 20px) * 0.9);
+    height: calc(var(--s, 20px) * 0.9);
   }
 }
 
