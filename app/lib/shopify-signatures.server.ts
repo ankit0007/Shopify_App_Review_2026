@@ -28,12 +28,35 @@ function cursorKey(secret: string) {
   return createHash('sha256').update(secret).digest();
 }
 
-export function encodePublicCursor(id: string, secret: string) {
-  if (!/^[a-z0-9]{8,32}$/i.test(id)) throw new Error('Cursor id is invalid');
+function encryptCursor(value: string, secret: string) {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', cursorKey(secret), iv);
-  const encrypted = Buffer.concat([cipher.update(id, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
   return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+
+export function encodePublicCursor(id: string, secret: string) {
+  if (!/^[a-z0-9]{8,32}$/i.test(id)) throw new Error('Cursor id is invalid');
+  return encryptCursor(id, secret);
+}
+
+export function encodeOpaqueCursor(value: string, secret: string) {
+  return encryptCursor(value, secret);
+}
+
+export function decodeOpaqueCursor(cursor: string, secret: string) {
+  const [ivPart, tagPart, encryptedPart] = cursor.split('.');
+  if (!ivPart || !tagPart || !encryptedPart) return null;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', cursorKey(secret), Buffer.from(ivPart, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagPart, 'base64url'));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encryptedPart, 'base64url')),
+      decipher.final(),
+    ]).toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 export function decodePublicCursor(cursor: string, secret: string) {

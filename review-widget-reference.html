@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Widget Reference</title>
+<style>
+/* ===== Design tokens (map these to theme editor settings) ===== */
+:root{
+  --sr-star:#f5b301;
+  --sr-star-empty:#d9dce1;
+  --sr-accent:#111111;          /* button color, inherits theme text color by default */
+  --sr-accent-text:#ffffff;
+  --sr-text:#1a1a1a;
+  --sr-muted:#6b7280;
+  --sr-border:#e7e7e9;
+  --sr-surface:#ffffff;
+  --sr-surface-alt:#f7f7f8;
+  --sr-verified:#0f7b4b;
+  --sr-radius:14px;
+  --sr-gap:24px;
+}
+body{margin:0;background:#f9f9f7;color:var(--sr-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.page{max-width:1100px;margin:40px auto;padding:0 16px}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sr-muted);margin:0 0 8px}
+
+/* ===== Compact rating (under product title) ===== */
+.sr-rating{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--sr-text);text-decoration:none;cursor:pointer}
+.sr-rating:hover .sr-rating__count{text-decoration:underline}
+.sr-rating__count{color:var(--sr-muted)}
+
+/* ===== Stars (partial fill via clip) ===== */
+.sr-stars{display:inline-flex;gap:2px;line-height:0}
+.sr-star{position:relative;width:var(--s,18px);height:var(--s,18px)}
+.sr-star svg{width:100%;height:100%;display:block}
+.sr-star .bg{fill:var(--sr-star-empty)}
+.sr-star .fg{position:absolute;inset:0;overflow:hidden;width:calc(var(--f,1) * 100%)}
+.sr-star .fg svg{width:var(--s,18px);height:var(--s,18px);fill:var(--sr-star)}
+
+/* ===== Main widget ===== */
+.sr{font:inherit;color:var(--sr-text);margin:48px 0}
+.sr__title{font-size:clamp(22px,2.4vw,28px);font-weight:700;margin:0 0 24px;letter-spacing:-.01em}
+.sr__top{display:grid;grid-template-columns:minmax(200px,260px) 1fr auto;gap:32px;align-items:center;padding:28px;border:1px solid var(--sr-border);border-radius:var(--sr-radius);background:var(--sr-surface)}
+.sr__avg{text-align:center}
+.sr__avg-num{font-size:52px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.sr__avg-of{font-size:15px;color:var(--sr-muted);font-weight:500}
+.sr__avg .sr-stars{margin:10px 0 6px}
+.sr__avg-count{font-size:14px;color:var(--sr-muted)}
+
+.sr__bars{display:grid;gap:8px;min-width:0}
+.sr__bar{display:grid;grid-template-columns:44px 1fr 36px;align-items:center;gap:12px;font-size:14px;background:none;border:0;padding:4px 6px;margin:0 -6px;border-radius:8px;color:inherit;cursor:pointer;text-align:left}
+.sr__bar:hover,.sr__bar[aria-pressed="true"]{background:var(--sr-surface-alt)}
+.sr__bar:disabled{cursor:default;opacity:.55}
+.sr__bar-label{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sr__bar-label svg{width:13px;height:13px;fill:var(--sr-star)}
+.sr__track{height:8px;background:var(--sr-surface-alt);border-radius:99px;overflow:hidden}
+.sr__fill{height:100%;background:var(--sr-star);border-radius:99px}
+.sr__bar-n{color:var(--sr-muted);text-align:right;font-variant-numeric:tabular-nums}
+
+.sr__cta{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.sr-btn{appearance:none;border:1px solid var(--sr-accent);background:var(--sr-accent);color:var(--sr-accent-text);font:inherit;font-size:15px;font-weight:600;padding:13px 22px;border-radius:10px;cursor:pointer;transition:transform .15s ease,opacity .15s ease;white-space:nowrap}
+.sr-btn:hover{opacity:.9}
+.sr-btn:active{transform:translateY(1px)}
+.sr-btn--ghost{background:transparent;color:var(--sr-text);border-color:var(--sr-border)}
+.sr-btn:focus-visible,.sr__bar:focus-visible,.sr-select:focus-visible{outline:2px solid var(--sr-accent);outline-offset:2px}
+
+/* ===== Toolbar ===== */
+.sr__toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:28px 0 8px;flex-wrap:wrap}
+.sr__showing{font-size:14px;color:var(--sr-muted)}
+.sr__chip{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:4px 10px;border-radius:99px;background:var(--sr-surface-alt);border:1px solid var(--sr-border);font-size:13px;color:var(--sr-text);cursor:pointer}
+.sr-select{font:inherit;font-size:14px;padding:9px 34px 9px 12px;border:1px solid var(--sr-border);border-radius:10px;background:var(--sr-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;appearance:none;color:var(--sr-text)}
+
+/* ===== Review cards ===== */
+.sr__list{list-style:none;margin:0;padding:0}
+.sr-card{display:grid;grid-template-columns:48px 1fr;gap:16px;padding:24px 0;border-top:1px solid var(--sr-border)}
+.sr-card:first-child{border-top:0}
+.sr-avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff;background:hsl(var(--h,220) 45% 45%)}
+.sr-card__head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.sr-card__name{font-weight:600;font-size:15px}
+.sr-verified{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--sr-verified)}
+.sr-verified svg{width:14px;height:14px}
+.sr-card__date{font-size:13px;color:var(--sr-muted);margin-left:auto}
+.sr-card .sr-stars{margin:8px 0 10px}
+.sr-card__title{font-weight:650;font-size:16px;margin:0 0 6px}
+.sr-card__body{font-size:15px;line-height:1.65;margin:0;color:var(--sr-text);white-space:pre-line;overflow-wrap:anywhere}
+.sr-card__more{background:none;border:0;padding:0;margin-top:6px;font:inherit;font-size:14px;font-weight:600;color:var(--sr-text);text-decoration:underline;cursor:pointer}
+
+.sr__more{display:flex;justify-content:center;margin-top:24px}
+
+/* ===== Skeleton ===== */
+.sr-skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--sr-surface-alt),#ececee,var(--sr-surface-alt));background-size:200% 100%;animation:sr-shimmer 1.2s infinite}
+@keyframes sr-shimmer{to{background-position:-200% 0}}
+
+/* ===== Empty state ===== */
+.sr-empty{text-align:center;padding:40px 24px;border:1px dashed var(--sr-border);border-radius:var(--sr-radius);background:var(--sr-surface)}
+.sr-empty h3{margin:10px 0 6px;font-size:18px}
+.sr-empty p{margin:0 0 18px;color:var(--sr-muted);font-size:15px}
+
+/* ===== Write-review panel ===== */
+.sr-form{margin-top:20px;padding:28px;border:1px solid var(--sr-border);border-radius:var(--sr-radius);background:var(--sr-surface);animation:sr-in .2s ease}
+@keyframes sr-in{from{opacity:0;transform:translateY(-6px)}}
+.sr-form__head{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:20px}
+.sr-form__head h3{margin:0;font-size:19px}
+.sr-form__head p{margin:4px 0 0;color:var(--sr-muted);font-size:14px}
+.sr-close{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--sr-muted);padding:4px}
+.sr-field{margin-bottom:18px}
+.sr-field label,.sr-field legend{display:block;font-size:14px;font-weight:600;margin-bottom:8px;padding:0}
+.sr-field .opt{font-weight:400;color:var(--sr-muted)}
+.sr-input{width:100%;box-sizing:border-box;font:inherit;font-size:15px;padding:12px 14px;border:1px solid var(--sr-border);border-radius:10px;background:var(--sr-surface);color:var(--sr-text);transition:border-color .15s,box-shadow .15s}
+.sr-input:focus{outline:none;border-color:var(--sr-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--sr-accent) 15%,transparent)}
+textarea.sr-input{min-height:120px;resize:vertical}
+.sr-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sr-hint{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sr-muted);margin-top:6px}
+.sr-err{color:#b42318;font-size:13px;margin-top:6px}
+
+/* Star picker: radio inputs, keyboard accessible */
+fieldset.sr-field{border:0;margin:0 0 18px;padding:0}
+.sr-picker{display:inline-flex;flex-direction:row-reverse;gap:4px}
+.sr-picker input{position:absolute;opacity:0;pointer-events:none}
+.sr-picker label{cursor:pointer;margin:0;line-height:0}
+.sr-picker svg{width:34px;height:34px;fill:var(--sr-star-empty);transition:fill .12s,transform .12s}
+.sr-picker label:hover svg,.sr-picker label:hover~label svg,.sr-picker input:checked~label svg{fill:var(--sr-star)}
+.sr-picker label:hover svg{transform:scale(1.08)}
+.sr-picker input:focus-visible+label svg{outline:2px solid var(--sr-accent);outline-offset:2px;border-radius:4px}
+.sr-picker-wrap{display:flex;align-items:center;gap:14px}
+.sr-picker-text{font-size:14px;color:var(--sr-muted);min-width:80px}
+
+.sr-form__foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:6px}
+.sr-form__note{font-size:12.5px;color:var(--sr-muted);max-width:420px}
+
+/* Success state */
+.sr-success{text-align:center;padding:36px 20px}
+.sr-success .tick{width:56px;height:56px;border-radius:50%;background:#e8f6ee;display:grid;place-items:center;margin:0 auto 12px}
+.sr-success h3{margin:0 0 6px}
+.sr-success p{margin:0;color:var(--sr-muted)}
+
+/* ===== Responsive ===== */
+@media (max-width:860px){
+  .sr__top{grid-template-columns:1fr;gap:22px;padding:22px}
+  .sr__avg{display:flex;align-items:center;gap:14px;text-align:left}
+  .sr__avg-num{font-size:44px}
+  .sr__avg .sr-stars{margin:0 0 4px}
+}
+@media (max-width:520px){
+  .sr-row{grid-template-columns:1fr}
+  .sr-card{grid-template-columns:1fr}
+  .sr-avatar{display:none}
+  .sr-card__date{margin-left:0;width:100%}
+  .sr-form{padding:20px}
+  .sr-btn{width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="label">1. Compact rating block (under product title)</p>
+  <a class="sr-rating" href="#reviews" aria-label="Rated 4.0 out of 5 stars, 2 reviews. Go to reviews">
+    <span class="sr-stars" style="--s:18px">
+      <span class="sr-star" style="--f:1"><svg viewBox="0 0 24 24"><path class="bg" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span></span>
+      <span class="sr-star" style="--f:1"><svg viewBox="0 0 24 24"><path class="bg" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span></span>
+      <span class="sr-star" style="--f:1"><svg viewBox="0 0 24 24"><path class="bg" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span></span>
+      <span class="sr-star" style="--f:1"><svg viewBox="0 0 24 24"><path class="bg" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span></span>
+      <span class="sr-star" style="--f:0"><svg viewBox="0 0 24 24"><path class="bg" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span></span>
+    </span>
+    <strong>4.0</strong><span class="sr-rating__count">(2 reviews)</span>
+  </a>
+
+  <section class="sr" id="reviews" aria-labelledby="sr-heading">
+    <p class="label" style="margin-top:40px">2. Full review section</p>
+    <h2 class="sr__title" id="sr-heading">Customer Reviews</h2>
+
+    <div class="sr__top">
+      <div class="sr__avg">
+        <div class="sr__avg-num" id="avgNum">4.0<span class="sr__avg-of"> / 5</span></div>
+        <div>
+          <span class="sr-stars" id="avgStars" style="--s:22px"></span>
+          <div class="sr__avg-count">Based on <span id="totalN">2</span> reviews</div>
+        </div>
+      </div>
+
+      <div class="sr__bars" id="bars" role="group" aria-label="Filter reviews by rating"></div>
+
+      <div class="sr__cta">
+        <button class="sr-btn" id="openForm" aria-expanded="false" aria-controls="formPanel">Write a review</button>
+      </div>
+    </div>
+
+    <div id="formPanel" hidden></div>
+
+    <div class="sr__toolbar">
+      <div class="sr__showing" id="showing" aria-live="polite"></div>
+      <label><span class="visually-hidden" style="position:absolute;left:-9999px">Sort reviews</span>
+        <select class="sr-select" id="sort">
+          <option value="newest">Most recent</option>
+          <option value="highest">Highest rating</option>
+          <option value="lowest">Lowest rating</option>
+        </select>
+      </label>
+    </div>
+
+    <ul class="sr__list" id="list"></ul>
+    <div class="sr__more"><button class="sr-btn sr-btn--ghost" id="more" hidden>Load more reviews</button></div>
+
+    <p class="label" style="margin-top:56px">3. Empty state (0 approved reviews)</p>
+    <div class="sr-empty">
+      <span class="sr-stars" style="--s:26px" id="emptyStars"></span>
+      <h3>No reviews yet</h3>
+      <p>Be the first to share your thoughts on this product.</p>
+      <button class="sr-btn">Write the first review</button>
+    </div>
+
+    <p class="label" style="margin-top:40px">4. Loading skeleton</p>
+    <div class="sr__top" aria-hidden="true">
+      <div><div class="sr-skel" style="height:48px;width:90px;margin:0 auto 10px"></div><div class="sr-skel" style="width:120px;margin:auto"></div></div>
+      <div style="display:grid;gap:12px"><div class="sr-skel"></div><div class="sr-skel" style="width:80%"></div><div class="sr-skel" style="width:60%"></div><div class="sr-skel" style="width:40%"></div><div class="sr-skel" style="width:30%"></div></div>
+      <div class="sr-skel" style="height:46px;width:160px"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const STAR='M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
+function stars(v,size){let h='';for(let i=0;i<5;i++){const f=Math.max(0,Math.min(1,v-i));h+=`<span class="sr-star" style="--f:${f}"><svg viewBox="0 0 24 24"><path class="bg" d="${STAR}"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="${STAR}"/></svg></span></span>`}return h}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const reviews=[
+ {name:'Ankit Saxena',rating:4,title:'Great board for the price',body:'Solid flex and the graphics look even better in person. Took it out for two weekends and it handled groomers really well. Edges came sharp out of the box.',date:'2026-09-29',verified:true},
+ {name:'Anwit',rating:4,title:'',body:'Arrived quickly, well packed. Happy with it so far.',date:'2026-10-01',verified:false},
+];
+const dist={5:0,4:2,3:0,2:0,1:0};
+let filter=null,sort='newest';
+
+document.getElementById('avgStars').innerHTML=stars(4.0);
+document.getElementById('emptyStars').innerHTML=stars(0);
+
+function renderBars(){
+  const total=Object.values(dist).reduce((a,b)=>a+b,0);
+  document.getElementById('bars').innerHTML=[5,4,3,2,1].map(n=>{
+    const c=dist[n],pct=total?c/total*100:0;
+    return `<button class="sr__bar" data-r="${n}" aria-pressed="${filter===n}" ${c?'':'disabled'} aria-label="${n} star reviews: ${c}. Filter">
+      <span class="sr__bar-label">${n}<svg viewBox="0 0 24 24"><path d="${STAR}"/></svg></span>
+      <span class="sr__track"><span class="sr__fill" style="width:${pct}%;display:block"></span></span>
+      <span class="sr__bar-n">${c}</span></button>`}).join('');
+}
+function relDate(iso){const d=(Date.now()-new Date(iso))/864e5;if(d<1)return 'Today';if(d<2)return 'Yesterday';if(d<30)return Math.floor(d)+' days ago';return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}
+function hue(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h}
+function initials(n){return n.trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase()}
+
+function renderList(){
+  let items=reviews.filter(r=>!filter||r.rating===filter);
+  items.sort((a,b)=>sort==='highest'?b.rating-a.rating:sort==='lowest'?a.rating-b.rating:new Date(b.date)-new Date(a.date));
+  document.getElementById('showing').innerHTML=`Showing ${items.length} of ${reviews.length} reviews`+(filter?`<button class="sr__chip" id="clear">${filter}★ only ✕</button>`:'');
+  document.getElementById('list').innerHTML=items.map(r=>`
+   <li class="sr-card">
+     <div class="sr-avatar" style="--h:${hue(r.name)}" aria-hidden="true">${esc(initials(r.name))}</div>
+     <article>
+       <div class="sr-card__head">
+         <span class="sr-card__name">${esc(r.name)}</span>
+         ${r.verified?`<span class="sr-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>Verified buyer</span>`:''}
+         <time class="sr-card__date" datetime="${r.date}">${relDate(r.date)}</time>
+       </div>
+       <span class="sr-stars" style="--s:16px" role="img" aria-label="${r.rating} out of 5 stars">${stars(r.rating)}</span>
+       ${r.title?`<h3 class="sr-card__title">${esc(r.title)}</h3>`:''}
+       <p class="sr-card__body">${esc(r.body)}</p>
+     </article>
+   </li>`).join('');
+  const c=document.getElementById('clear');if(c)c.onclick=()=>{filter=null;renderBars();renderList()};
+}
+document.getElementById('bars').addEventListener('click',e=>{const b=e.target.closest('.sr__bar');if(!b)return;const r=+b.dataset.r;filter=filter===r?null:r;renderBars();renderList()});
+document.getElementById('sort').onchange=e=>{sort=e.target.value;renderList()};
+
+const LABELS=['','Poor','Fair','Good','Very good','Excellent'];
+const panel=document.getElementById('formPanel'),openBtn=document.getElementById('openForm');
+function formHTML(){return `<form class="sr-form" novalidate>
+  <div class="sr-form__head"><div><h3>Write a review</h3><p>The Collection Snowboard: Liquid</p></div><button type="button" class="sr-close" aria-label="Close">×</button></div>
+  <fieldset class="sr-field"><legend>Your rating <span aria-hidden="true" style="color:#b42318">*</span></legend>
+    <div class="sr-picker-wrap"><div class="sr-picker">${[5,4,3,2,1].map(n=>`<input type="radio" name="rating" id="r${n}" value="${n}"><label for="r${n}" title="${LABELS[n]}"><svg viewBox="0 0 24 24"><path d="${STAR}"/></svg><span style="position:absolute;left:-9999px">${n} stars</span></label>`).join('')}</div><span class="sr-picker-text" id="pickText">Select a rating</span></div>
+    <div class="sr-err" id="rErr" hidden>Please choose a star rating.</div></fieldset>
+  <div class="sr-field"><label for="t">Review title <span class="opt">(optional)</span></label><input class="sr-input" id="t" maxlength="100" placeholder="Sum it up in a few words"></div>
+  <div class="sr-field"><label for="b">Your review</label><textarea class="sr-input" id="b" maxlength="5000" placeholder="What did you like or dislike? How did you use it?"></textarea><div class="sr-hint"><span>Minimum 10 characters</span><span id="cnt">0 / 5000</span></div><div class="sr-err" id="bErr" hidden>Please write at least 10 characters.</div></div>
+  <div class="sr-row"><div class="sr-field"><label for="n">Display name</label><input class="sr-input" id="n" maxlength="60" placeholder="e.g. Ankit S." autocomplete="name"></div>
+  <div class="sr-field"><label for="e">Email <span class="opt">(private, not shown)</span></label><input class="sr-input" id="e" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
+  <div class="sr-form__foot"><p class="sr-form__note">Reviews are checked before they appear. By submitting you agree to our review terms.</p><button class="sr-btn" type="submit">Submit review</button></div>
+</form>`}
+openBtn.onclick=()=>{const open=panel.hidden;panel.hidden=!open;openBtn.setAttribute('aria-expanded',open);if(open){panel.innerHTML=formHTML();wire();panel.querySelector('input[name=rating]').focus()}};
+function wire(){
+  const f=panel.querySelector('form');
+  f.querySelector('.sr-close').onclick=()=>{panel.hidden=true;openBtn.setAttribute('aria-expanded',false);openBtn.focus()};
+  f.querySelectorAll('input[name=rating]').forEach(i=>i.onchange=()=>{document.getElementById('pickText').textContent=LABELS[i.value];document.getElementById('rErr').hidden=true});
+  const b=f.querySelector('#b');b.oninput=()=>document.getElementById('cnt').textContent=b.value.length+' / 5000';
+  f.onsubmit=e=>{e.preventDefault();const r=f.querySelector('input[name=rating]:checked');let ok=true;
+    if(!r){document.getElementById('rErr').hidden=false;ok=false}
+    if(b.value.trim().length<10){document.getElementById('bErr').hidden=false;ok=false}else document.getElementById('bErr').hidden=true;
+    if(!ok)return;
+    panel.innerHTML=`<div class="sr-form"><div class="sr-success" role="status"><div class="tick"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f7b4b" stroke-width="2.5"><path d="m5 12 5 5 9-10"/></svg></div><h3>Thank you for your review!</h3><p>It will appear here once it has been approved.</p></div></div>`};
+}
+renderBars();renderList();
+</script>
+</body>
+</html>

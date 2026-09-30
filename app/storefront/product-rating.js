@@ -92,8 +92,9 @@
     return {
       click: data.click !== 'false', showCount: data.showCount !== 'false', showNumber: data.showNumber !== 'false',
       halfStars: data.halfStars !== 'false', countFormat: data.countFormat || 'words',
-      precision: data.precision || '1', emptyText: data.emptyText || 'No reviews yet', writeText: data.writeText || 'Write a review',
-      star: data.star || '#f5b301', empty: data.empty || '#c5c5c5', starSize: data.starSize || '20',
+      precision: data.precision || '1', emptyText: data.emptyText || 'Be the first to review', writeText: data.writeText || 'Write a review',
+      hideWhenEmpty: data.hideEmpty === 'true',
+      star: data.star || '#f5b301', empty: data.empty || '#d9dce1', starSize: data.starSize || '20',
       textSize: data.textSize || '14', space: data.space || '8', align: data.align || 'left',
     };
   }
@@ -107,6 +108,7 @@
       click: settings.click ? 'true' : 'false', showCount: settings.showCount ? 'true' : 'false',
       showNumber: settings.showNumber ? 'true' : 'false', halfStars: settings.halfStars ? 'true' : 'false',
       countFormat: settings.countFormat, precision: settings.precision, emptyText: settings.emptyText, writeText: settings.writeText,
+      hideEmpty: settings.hideWhenEmpty ? 'true' : 'false',
     });
     node.style.cssText = `--rating-star:${settings.star};--rating-empty:${settings.empty};--rating-size:${settings.starSize}px;--rating-text:${settings.textSize}px;--rating-space:${settings.space}px;text-align:${settings.align}`;
     return node;
@@ -121,57 +123,75 @@
     });
   }
 
+  const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
+  let ratingsWarned = false;
+
+  function starRow(average, halfStars) {
+    const stars = document.createElement('span');
+    stars.className = 'sr-stars';
+    stars.setAttribute('aria-hidden', 'true');
+    starFills(average, halfStars).forEach((fill) => {
+      const star = document.createElement('span');
+      star.className = 'sr-star';
+      star.style.setProperty('--f', String(fill));
+      star.innerHTML = `<svg viewBox="0 0 24 24"><path class="bg" d="${STAR_PATH}"/></svg><span class="fg"><svg viewBox="0 0 24 24"><path d="${STAR_PATH}"/></svg></span>`;
+      stars.append(star);
+    });
+    return stars;
+  }
+
   function renderRating(node, rating) {
+    if (rating?.failed) {
+      node.hidden = true;
+      node.replaceChildren();
+      if (!ratingsWarned) {
+        ratingsWarned = true;
+        console.warn('Product ratings could not be loaded.');
+      }
+      return;
+    }
     const count = Number(rating?.reviewCount) || 0;
     const average = count > 0 && Number.isFinite(Number(rating?.averageRating)) ? Number(rating.averageRating) : null;
+    if (node.dataset.hideEmpty === 'true' && average == null) {
+      node.hidden = true;
+      node.replaceChildren();
+      return;
+    }
     const click = node.dataset.click !== 'false';
     const showNumber = node.dataset.showNumber !== 'false';
     const halfStars = node.dataset.halfStars !== 'false';
     const productId = numericId(node.dataset.productId);
-    const handle = node.dataset.productHandle;
     const target = productId ? document.getElementById(`shopify-product-reviews-${productId}`) : null;
     const nested = Boolean(node.parentElement?.closest('a'));
-    const control = document.createElement(click && !nested && (target || handle) ? 'a' : 'div');
-    control.className = 'shopify-review-rating__link';
+    const control = document.createElement(click && !nested && target ? 'a' : 'div');
+    control.className = 'sr-rating__link';
     control.setAttribute('aria-label', average == null
-      ? (node.dataset.emptyText || 'No reviews yet')
-      : `Rated ${average.toFixed(1)} out of 5 stars from ${count} ${count === 1 ? 'review' : 'reviews'}`);
-    if (control instanceof HTMLAnchorElement) {
-      if (target) {
-        control.href = `#${target.id}`;
-        control.addEventListener('click', (event) => {
-          event.preventDefault();
-          target.scrollIntoView({behavior: 'smooth', block: 'start'});
-          target.focus({preventScroll: true});
-        });
-      } else if (handle && productId) control.href = `/products/${handle}#shopify-product-reviews-${productId}`;
+      ? (node.dataset.emptyText || 'Be the first to review')
+      : `Rated ${average.toFixed(1)} out of 5 stars, ${count} ${count === 1 ? 'review' : 'reviews'}`);
+    if (control instanceof HTMLAnchorElement && target) {
+      control.href = `#${target.id}`;
+      control.addEventListener('click', (event) => {
+        event.preventDefault();
+        target.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+        target.focus({preventScroll: true});
+      });
     }
-    const stars = document.createElement('span');
-    stars.className = 'shopify-review-rating__stars';
-    stars.setAttribute('aria-hidden', 'true');
-    starFills(average, halfStars).forEach((fill) => {
-      const star = document.createElement('span');
-      star.className = 'shopify-review-rating__star';
-      star.style.setProperty('--fill', String(fill));
-      const empty = document.createElement('span');
-      empty.className = 'is-empty';
-      empty.textContent = average == null ? '☆' : '★';
-      const filled = document.createElement('span');
-      filled.className = 'is-fill';
-      filled.textContent = '★';
-      star.append(empty, filled);
-      stars.append(star);
-    });
     const text = document.createElement('span');
-    text.className = 'shopify-review-rating__text';
-    if (average == null) text.textContent = `${node.dataset.emptyText || 'No reviews yet'}${click && target ? ` ${node.dataset.writeText || 'Write a review'}` : ''}`;
+    text.className = 'sr-rating__text';
+    if (average == null) text.textContent = node.dataset.emptyText || 'Be the first to review';
     else {
-      const countLabel = node.dataset.countFormat === 'compact' ? `(${count})` : `${count} ${count === 1 ? 'review' : 'reviews'}`;
-      const number = showNumber ? average.toFixed(1) : '';
-      const visible = [number, node.dataset.showCount === 'false' ? '' : countLabel].filter(Boolean).join(' ');
-      text.textContent = visible;
+      if (showNumber) {
+        const number = document.createElement('strong');
+        number.textContent = average.toFixed(1);
+        text.append(number, ' ');
+      }
+      if (node.dataset.showCount !== 'false') {
+        const countLabel = document.createElement('span');
+        countLabel.textContent = node.dataset.countFormat === 'compact' ? `(${count})` : `${count} ${count === 1 ? 'review' : 'reviews'}`;
+        text.append(countLabel);
+      }
     }
-    control.append(stars, text);
+    control.append(starRow(average, halfStars), text);
     node.replaceChildren(control);
     node.hidden = false;
     node.dataset.shopifyReviewRatingMounted = '1';
@@ -212,15 +232,16 @@
     for (let index = 0; index < unique.length; index += 50) {
       const chunk = unique.slice(index, index + 50);
       try {
-        const response = await fetch(`/apps/shopify-review/ratings?productIds=${chunk.join(',')}`);
-        const ratings = response.ok ? (await response.json())?.data?.ratings ?? {} : {};
+        const response = await fetch(`/apps/shopify-review/ratings?productIds=${chunk.join(',')}`, {signal: AbortSignal.timeout(3000)});
+        if (!response.ok) throw new Error('ratings unavailable');
+        const ratings = (await response.json())?.data?.ratings ?? {};
         chunk.forEach((id) => cache.set(id, {averageRating: null, reviewCount: 0}));
         Object.entries(ratings).forEach(([gid, rating]) => {
           const id = numericId(gid);
           if (id) cache.set(id, {averageRating: rating?.averageRating ?? null, reviewCount: Number(rating?.reviewCount) || 0});
         });
       } catch {
-        chunk.forEach((id) => cache.set(id, {averageRating: null, reviewCount: 0}));
+        chunk.forEach((id) => cache.set(id, {failed: true, averageRating: null, reviewCount: 0}));
       }
     }
   }

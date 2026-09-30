@@ -18,5 +18,6 @@
   data-precision="{{ precision | default: '1' | escape }}"
   data-empty-text="{{ empty_text | escape }}"
   data-write-text="{{ write_text | escape }}"
-  style="--rating-star: {{ star_color | default: '#f5b301' }}; --rating-empty: {{ empty_color | default: '#c5c5c5' }}; --rating-size: {{ star_size | default: 20 }}px; --rating-text: {{ text_size | default: 14 }}px; --rating-space: {{ spacing | default: 8 }}px; text-align: {{ alignment | default: 'left' }}; font-family: inherit;"
+  data-hide-empty="{% if hide_when_empty %}true{% else %}false{% endif %}"
+  style="--sr-star: {{ star_color | default: '#f5b301' }}; --sr-star-empty: {{ empty_color | default: '#d9dce1' }}; --rating-size: {{ star_size | default: 20 }}px; --rating-text: {{ text_size | default: 14 }}px; --rating-space: {{ spacing | default: 8 }}px; text-align: {{ alignment | default: 'left' }};"
 ></div>

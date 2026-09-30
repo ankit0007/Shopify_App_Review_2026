@@ -1,9 +1,11 @@
 import {db} from '../db.server';
 import {fail, ok} from '../lib/api.server';
-import {decodePublicCursor, encodePublicCursor, verifyAppProxySignature} from '../lib/shopify-signatures.server';
+import {decodeOpaqueCursor, encodeOpaqueCursor, verifyAppProxySignature} from '../lib/shopify-signatures.server';
 import {config} from '../config.server';
 import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
-import {reviewSubmissionSchema} from '../modules/reviews/review.schema';
+import {cursorMatchesQuery, cursorPayload, emptyDistribution, parseListQuery, readCursorPayload} from '../modules/reviews/public-list';
+import {summarizeRatingCounts} from '../modules/reviews/rating';
+import {publicReviewSubmissionSchema} from '../modules/reviews/review.schema';
 import {PlanService} from '../modules/plans/plan.service.server';
 
 export async function loader({params, request}: {params: {productId?: string}; request: Request}) {
@@ -27,22 +29,33 @@ export async function loader({params, request}: {params: {productId?: string}; r
   }
   const requestedLimit = Number(url.searchParams.get('limit') ?? 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 20) : 10;
+  const listQuery = parseListQuery(url.searchParams.get('sort'), url.searchParams.get('rating'));
+  if (!listQuery.ok) return fail(listQuery.code, 'The review list filters are invalid');
   const cursorValue = url.searchParams.get('cursor');
-  const cursor = cursorValue ? decodePublicCursor(cursorValue, config.SHOPIFY_API_SECRET) : undefined;
-  if (cursorValue && !cursor) return Response.json({success: false, error: {code: 'INVALID_CURSOR', message: 'Cursor is invalid'}}, {status: 400});
+  const cursorText = cursorValue ? decodeOpaqueCursor(cursorValue, config.SHOPIFY_API_SECRET) : null;
+  const cursor = cursorText ? readCursorPayload(cursorText) : null;
+  if (cursorValue && (!cursor || !cursorMatchesQuery(cursor, listQuery))) {
+    return fail('INVALID_CURSOR', 'Cursor is invalid', 400);
+  }
 
   const product = await db.product.findFirst({
     where: {shopifyProductId: productId, shop: {shopDomain}},
     select: {id: true},
   });
-  if (!product) return ok({reviews: [], nextCursor: null});
+  const empty = {reviews: [], nextCursor: null, averageRating: null, totalReviews: 0, distribution: emptyDistribution()};
+  if (!product) return ok(empty, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
 
-  const [reviews, aggregate] = await Promise.all([
+  const orderBy = listQuery.sort === 'highest'
+    ? [{rating: 'desc' as const}, {submittedAt: 'desc' as const}, {id: 'desc' as const}]
+    : listQuery.sort === 'lowest'
+      ? [{rating: 'asc' as const}, {submittedAt: 'desc' as const}, {id: 'desc' as const}]
+      : [{submittedAt: 'desc' as const}, {id: 'desc' as const}];
+  const [reviews, groups] = await Promise.all([
     db.review.findMany({
-    where: {productId: product.id, status: 'APPROVED'},
-    orderBy: {submittedAt: 'desc'},
+    where: {productId: product.id, status: 'APPROVED', deletedAt: null, ...(listQuery.rating ? {rating: listQuery.rating} : {})},
+    orderBy,
     take: limit + 1,
-    ...(cursor ? {skip: 1, cursor: {id: cursor}} : {}),
+    ...(cursor ? {skip: 1, cursor: {id: cursor.id}} : {}),
     select: {
       id: true,
       rating: true,
@@ -54,23 +67,28 @@ export async function loader({params, request}: {params: {productId?: string}; r
       media: {where: {approved: true}, select: {type: true}},
     },
     }),
-    db.review.aggregate({
-      where: {productId: product.id, status: 'APPROVED'},
-      _avg: {rating: true},
+    db.review.groupBy({
+      by: ['rating'],
+      where: {productId: product.id, status: 'APPROVED', deletedAt: null},
       _count: {_all: true},
     }),
   ]);
   const hasMore = reviews.length > limit;
   const items = hasMore ? reviews.slice(0, limit) : reviews;
+  const distribution = emptyDistribution();
+  for (const group of groups) distribution[String(group.rating) as '1'] = group._count._all;
+  const summary = summarizeRatingCounts([1, 2, 3, 4, 5].map((rating) => ({rating, count: distribution[String(rating) as '1']})));
+  const last = items.at(-1);
   return ok({
     reviews: items.map(({id: _id, ...review}) => ({
       ...review,
       submittedAt: review.submittedAt.toISOString(),
     })),
-    nextCursor: hasMore && items.at(-1) ? encodePublicCursor(items.at(-1)!.id, config.SHOPIFY_API_SECRET) : null,
-    averageRating: aggregate._avg.rating ?? 0,
-    totalReviews: aggregate._count._all,
-  });
+    nextCursor: hasMore && last ? encodeOpaqueCursor(cursorPayload(listQuery.sort, listQuery.rating, last.id), config.SHOPIFY_API_SECRET) : null,
+    averageRating: summary.averageRating,
+    totalReviews: summary.reviewCount,
+    distribution,
+  }, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
 }
 
 export async function action({params, request}: {params: {productId?: string}; request: Request}) {
@@ -95,7 +113,8 @@ export async function action({params, request}: {params: {productId?: string}; r
     return fail('INVALID_REQUEST', 'Shop and product are required');
   }
   const form = await request.formData();
-  const parsed = reviewSubmissionSchema.safeParse({
+  if (String(form.get('website') || '').trim()) return ok({status: 'PENDING'});
+  const parsed = publicReviewSubmissionSchema.safeParse({
     rating: form.get('rating'),
     title: form.get('title') || undefined,
     body: form.get('body'),

@@ -1,12 +1,21 @@
 {% render 'review-widget',
   placement: 'section',
+  heading: block.settings.heading,
   accent: block.settings.accent_color,
+  empty_star: block.settings.empty_star_color,
+  button_color: block.settings.button_color,
+  radius: block.settings.corner_radius,
   per_page: block.settings.reviews_per_page,
+  default_sort: block.settings.default_sort,
   show_form: block.settings.show_form,
   show_name: block.settings.show_customer_name,
   show_date: block.settings.show_date,
   show_verified: block.settings.show_verified_badge,
+  show_histogram: block.settings.show_histogram,
+  show_sort: block.settings.show_sort,
+  show_avatar: block.settings.show_avatar,
   empty_message: block.settings.empty_message,
+  write_label: block.settings.write_label,
   submit_label: block.settings.submit_label
 %}
 
@@ -17,13 +26,22 @@
   "javascript": "review-widgets.js",
   "stylesheet": "review-widgets.css",
   "settings": [
+    {"type": "text", "id": "heading", "label": "Heading", "default": "Customer Reviews"},
     {"type": "color", "id": "accent_color", "label": "Star color", "default": "#f5b301"},
+    {"type": "color", "id": "empty_star_color", "label": "Empty star color", "default": "#d9dce1"},
+    {"type": "color", "id": "button_color", "label": "Button color", "default": "#111111"},
+    {"type": "range", "id": "corner_radius", "label": "Corner radius", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 14},
     {"type": "range", "id": "reviews_per_page", "label": "Reviews per page", "min": 1, "max": 10, "step": 1, "default": 5},
+    {"type": "select", "id": "default_sort", "label": "Default sort", "default": "newest", "options": [{"value": "newest", "label": "Most recent"}, {"value": "highest", "label": "Highest rating"}, {"value": "lowest", "label": "Lowest rating"}]},
+    {"type": "checkbox", "id": "show_histogram", "label": "Show rating breakdown", "default": true},
+    {"type": "checkbox", "id": "show_sort", "label": "Show sort", "default": true},
+    {"type": "checkbox", "id": "show_avatar", "label": "Show reviewer initials", "default": true},
     {"type": "checkbox", "id": "show_form", "label": "Show review form", "default": true},
     {"type": "checkbox", "id": "show_customer_name", "label": "Show customer name", "default": true},
     {"type": "checkbox", "id": "show_date", "label": "Show review date", "default": true},
     {"type": "checkbox", "id": "show_verified_badge", "label": "Show verified purchase badge", "default": true},
     {"type": "text", "id": "empty_message", "label": "Empty state message", "default": "No reviews yet"},
+    {"type": "text", "id": "write_label", "label": "Write a review text", "default": "Write a review"},
     {"type": "text", "id": "submit_label", "label": "Submit button text", "default": "Submit review"}
   ]
 }

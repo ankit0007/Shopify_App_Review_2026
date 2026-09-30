@@ -7,4 +7,10 @@ export const reviewSubmissionSchema = z.object({
   displayName: z.string().trim().max(120).optional(),
 });
 
+export const publicReviewSubmissionSchema = reviewSubmissionSchema.extend({
+  title: z.string().trim().max(100).optional(),
+  body: z.string().trim().min(10).max(5000),
+  displayName: z.string().trim().min(1).max(60),
+});
+
 export type ReviewSubmission = z.infer<typeof reviewSubmissionSchema>;

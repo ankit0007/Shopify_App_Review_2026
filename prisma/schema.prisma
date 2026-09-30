@@ -255,6 +255,7 @@ model Review {
 
   @@index([shopId, productId, status])
   @@index([shopId, submittedAt])
+  @@index([productId, status, rating, submittedAt])
 }
 
 model ReviewMedia {

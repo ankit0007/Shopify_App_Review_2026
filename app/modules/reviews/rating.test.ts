@@ -88,7 +88,7 @@ describe('product rating calculation', () => {
     });
     expect(ratings['gid://shopify/Product/1'].reviewCount).toBe(126);
     expect(formatAverage(ratings['gid://shopify/Product/1'].averageRating)).toBe('4.8');
-    expect(ratingAriaLabel(ratings['gid://shopify/Product/1'])).toBe('Rated 4.8 out of 5 stars from 126 reviews');
+    expect(ratingAriaLabel(ratings['gid://shopify/Product/1'])).toBe('Rated 4.8 out of 5 stars, 126 reviews');
     expect(ratingAriaLabel({averageRating: null, reviewCount: 0})).toBe('No reviews yet');
     expect(JSON.stringify(ratings)).not.toMatch(/email|token|password|cuid/i);
   });
