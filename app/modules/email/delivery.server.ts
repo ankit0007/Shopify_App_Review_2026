@@ -4,7 +4,7 @@ import {db} from '../../db.server';
 import {decryptSecret} from '../../lib/secret-box';
 import {assertSmtpMode, sanitizeSmtpError} from './smtp-config';
 import {NodemailerSmtpTransport, SMTPEmailProvider, type SmtpConnection} from './smtp-provider.server';
-import {renderTemplate, templateTypeForReminder, escapeHtml} from './template';
+import {renderTemplate, templateTypeForReminder, escapeHtml, productCardsHtml} from './template';
 import {createEmailService, type EmailService} from './email.service.server';
 import {blockedByAcceptedDelivery} from './delivery-state';
 import {decideRetry} from './retry';
@@ -55,6 +55,9 @@ export async function deliverReviewEmail(input: {
   reminderCount: number;
   recipient: string;
   productName: string;
+  orderNumber?: string;
+  customerName?: string;
+  products?: Array<{title: string; imageUrl?: string | null}>;
   reviewUrl: string;
   unsubscribeUrl: string;
   secrets: string[];
@@ -65,17 +68,20 @@ export async function deliverReviewEmail(input: {
     select: {id: true},
   });
   if (blockedByAcceptedDelivery(alreadyAccepted ? 'ACCEPTED' : null)) return {status: 'ACCEPTED' as const, providerId: null};
+  const productsHtml = productCardsHtml(input.products ?? []);
   const rendered = await renderStoredTemplate(templateType, {
     shopName: input.shopDomain,
-    customerName: 'Customer',
+    customerName: input.customerName || 'Customer',
     productName: input.productName,
+    orderNumber: input.orderNumber || '',
     reviewUrl: input.reviewUrl,
     unsubscribeUrl: input.unsubscribeUrl,
+    productsHtml,
   });
   const message = rendered ?? {
-    subject: 'How was your purchase from {{shopName}}?',
-    html: `<p>Hi,</p><p>Your order has been fulfilled. We would love to hear what you think about the products you received.</p><p>${escapeHtml(input.productName)}</p><p><a href="${escapeHtml(input.reviewUrl)}">Write a review</a></p>`,
-    text: `Hi Customer, your order has been fulfilled. Review ${input.productName}: ${input.reviewUrl}`,
+    subject: "How was your purchase? We'd love your review",
+    html: `<p>Hi ${escapeHtml(input.customerName || 'there')},</p><p>Your order ${escapeHtml(input.orderNumber || '')} has been fulfilled.</p>${productsHtml}<p><a href="${escapeHtml(input.reviewUrl)}">Review your purchases</a></p><p><a href="${escapeHtml(input.unsubscribeUrl)}">Unsubscribe from review requests</a></p>`,
+    text: `Hi ${input.customerName || 'there'}, review order ${input.orderNumber || ''} products ${input.productName}: ${input.reviewUrl}. Unsubscribe from review requests: ${input.unsubscribeUrl}`,
   };
   const delivery = await db.emailDelivery.create({
     data: {

@@ -50,6 +50,10 @@ export async function action({request}: {request: Request}) {
       where: {id: shop.id},
       data: {uninstalledAt: new Date()},
     });
+    await db.reviewRequest.updateMany({
+      where: {shopId: shop.id, status: {in: ['PENDING', 'SCHEDULED', 'SENDING']}},
+      data: {status: 'CANCELLED', lastError: 'Shop uninstalled'},
+    });
   }
 
   if (['customers/data_request', 'customers/redact'].includes(topic) && shop) {

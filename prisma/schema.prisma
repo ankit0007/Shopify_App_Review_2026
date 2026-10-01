@@ -113,7 +113,7 @@ model ShopSettings {
   shop                  Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   automaticRequests     Boolean  @default(false)
   showWriteReviewButton Boolean  @default(false)
-  requestDelayDays      Int      @default(7)
+  requestDelayDays      Int      @default(2)
   reminderDelayDays     Int      @default(3)
   maxReminders          Int      @default(1)
   requestExpirationDays Int      @default(30)

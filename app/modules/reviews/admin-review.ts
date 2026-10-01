@@ -12,6 +12,7 @@ export const ADMIN_REVIEW_EVENT = 'ADMIN_CREATED';
 export const adminReviewSchema = publicReviewSubmissionSchema.extend({
   status: z.enum(['APPROVED', 'PENDING']).default('APPROVED'),
   featured: z.boolean().default(false),
+  verifiedPurchase: z.boolean().default(false),
 });
 
 export type AdminReviewInput = z.infer<typeof adminReviewSchema>;
@@ -89,6 +90,7 @@ export function parseAdminReviewForm(input: {
   displayName?: unknown;
   status?: unknown;
   featured?: unknown;
+  verifiedPurchase?: unknown;
 }) {
   const status = input.status === 'PENDING' || input.status === 'APPROVED' ? input.status : input.status;
   const parsed = adminReviewSchema.safeParse({
@@ -98,6 +100,7 @@ export function parseAdminReviewForm(input: {
     displayName: typeof input.displayName === 'string' ? input.displayName.replace(/[\r\n]+/g, ' ') : '',
     status,
     featured: input.featured === true || input.featured === 'true' || input.featured === 'on',
+    verifiedPurchase: input.verifiedPurchase === true || input.verifiedPurchase === 'true' || input.verifiedPurchase === 'on',
   });
   if (parsed.success) return {ok: true as const, data: parsed.data};
   const fieldErrors: Record<string, string> = {};
@@ -124,8 +127,10 @@ export function adminReviewCreateData(input: {
     displayName: input.data.displayName,
     status: input.data.status,
     featured: input.data.featured,
-    verifiedPurchase: false,
-    verificationReason: 'Created by the merchant. Not a verified purchase.',
+    verifiedPurchase: input.data.verifiedPurchase,
+    verificationReason: input.data.verifiedPurchase
+      ? 'Marked as a verified purchase by the merchant.'
+      : 'Created by the merchant. Not a verified purchase.',
     submittedAt,
   };
 }

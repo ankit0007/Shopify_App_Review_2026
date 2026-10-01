@@ -98,7 +98,14 @@ export async function createAdminReview(input: {
         action: 'ADMIN_CREATE',
         entity: 'REVIEW',
         entityId: review.id,
-        metadata: {source: ADMIN_REVIEW_SOURCE, status: review.status},
+        metadata: {
+          source: ADMIN_REVIEW_SOURCE,
+          event: 'review_created',
+          status: review.status,
+          rating: review.rating,
+          productId: product.shopifyProductId,
+          verifiedPurchase: review.verifiedPurchase,
+        },
       },
     });
     return {review, shopifyProductId: product.shopifyProductId};
@@ -135,5 +142,6 @@ export function readAdminReviewForm(form: FormData) {
     displayName: form.get('displayName'),
     status: form.get('status'),
     featured: form.get('featured'),
+    verifiedPurchase: form.get('verifiedPurchase'),
   });
 }

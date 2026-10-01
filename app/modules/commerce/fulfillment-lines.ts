@@ -15,8 +15,56 @@ export type CommercePayload = {
   fulfillment_status?: string | null;
   status?: string | null;
   fulfilled_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   line_items?: LineItem[] | null;
 };
+
+export const REVIEW_DELAY_DAYS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+export const DEFAULT_REVIEW_DELAY_DAYS = 2;
+
+export function reviewRequestDelayDays(value: unknown) {
+  const days = Number(value);
+  return REVIEW_DELAY_DAYS.includes(days as (typeof REVIEW_DELAY_DAYS)[number]) ? days : null;
+}
+
+export function normalizeReviewDelayDays(value: unknown) {
+  return reviewRequestDelayDays(value) ?? DEFAULT_REVIEW_DELAY_DAYS;
+}
+
+export function fulfillmentMoment(payload: CommercePayload, now = new Date()) {
+  const raw = payload.fulfilled_at || payload.created_at || payload.updated_at;
+  if (!raw) return now;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? now : parsed;
+}
+
+export function latestFulfillmentMoment(current: Date | null | undefined, incoming: Date) {
+  if (!current || Number.isNaN(current.getTime())) return incoming;
+  return incoming.getTime() >= current.getTime() ? incoming : current;
+}
+
+export function reviewSendAt(fulfilledAt: Date, delayDays: unknown) {
+  return new Date(fulfilledAt.getTime() + normalizeReviewDelayDays(delayDays) * 86_400_000);
+}
+
+const SENT_REQUEST_STATUSES = new Set(['SENT', 'OPENED', 'CLICKED', 'SENDING']);
+
+export function orderEmailAlreadySent(requests: Array<{status: string; sentAt?: Date | null}>) {
+  return requests.some((request) => SENT_REQUEST_STATUSES.has(request.status) || request.sentAt != null);
+}
+
+export function planOrderReviewEmail(input: {
+  automatic: boolean;
+  emailAlreadySent: boolean;
+  hasWaitingAnchor: boolean;
+  productAlreadyRequested: boolean;
+}) {
+  if (!input.automatic) return 'skip' as const;
+  if (input.productAlreadyRequested) return input.emailAlreadySent ? 'keep' as const : 'reschedule' as const;
+  if (input.emailAlreadySent || input.hasWaitingAnchor) return 'attach' as const;
+  return 'schedule' as const;
+}
 
 export function shopifyOrderId(payload: CommercePayload) {
   if (payload.order_id != null && String(payload.order_id).trim()) return String(payload.order_id);

@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {data, Form, useLoaderData} from 'react-router';
 import {BlockStack, Card, EmptyState, InlineStack, Page, Text} from '@shopify/polaris';
+import {AdminListPagination} from '../components/admin-list-pagination';
 import {AddReviewDialog} from '../components/add-review-dialog';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
@@ -156,7 +157,6 @@ export default function Reviews() {
           <button type="submit" style={filterButton}>Filter</button>
         </InlineStack>
       </Form>
-      <p>{total} {total === 1 ? 'review' : 'reviews'}</p>
       {reviews.length === 0 ? (
         <EmptyState heading="No reviews yet" image="" fullWidth>
           Customer reviews from the product page will appear here. Approve a review to show it on the storefront.
@@ -207,13 +207,14 @@ export default function Reviews() {
           })}
         </BlockStack>
       )}
-      {pages > 1 ? (
-        <InlineStack gap="200">
-          {page > 1 ? <a href={reviewPageHref(filters, page - 1)}>Previous</a> : null}
-          <span>Page {page} of {pages}</span>
-          {page < pages ? <a href={reviewPageHref(filters, page + 1)}>Next</a> : null}
-        </InlineStack>
-      ) : null}
+      <AdminListPagination
+        page={page}
+        pages={pages}
+        total={total}
+        noun="review"
+        previousUrl={reviewPageHref(filters, page - 1)}
+        nextUrl={reviewPageHref(filters, page + 1)}
+      />
     </Page>
   );
 }

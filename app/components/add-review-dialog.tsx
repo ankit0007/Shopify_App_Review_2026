@@ -206,7 +206,11 @@ export function AddReviewDialog({open, onClose}: {open: boolean; onClose: (revie
           <input type="checkbox" name="featured" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
           Featured
         </label>
-        <p className="add-review__verified">Not verified. A verified buyer badge is only added when a fulfilled order matches the customer.</p>
+        <label className="add-review__check">
+          <input type="checkbox" name="verifiedPurchase" value="true" />
+          Verified purchase
+        </label>
+        <p className="add-review__verified">Leave this unchecked unless you know this customer bought the product. It is off by default.</p>
 
         <footer className="add-review__footer">
           <button type="button" className="add-review__secondary" onClick={() => onClose()}>Cancel</button>

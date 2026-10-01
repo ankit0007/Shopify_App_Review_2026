@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {describe, expect, it} from 'vitest';
-import {adminPage, ADMIN_PAGE_SIZE, pageCount} from '../admin/page';
-import {automaticRequestsEnabled, requestStatusForLine, reviewableFulfilledLines, showWriteReviewButtonEnabled} from './fulfillment-lines';
+import {adminPage, adminRangeLabel, ADMIN_PAGE_SIZE, pageCount} from '../admin/page';
+import {automaticRequestsEnabled, latestFulfillmentMoment, normalizeReviewDelayDays, orderEmailAlreadySent, planOrderReviewEmail, requestStatusForLine, reviewableFulfilledLines, reviewRequestDelayDays, reviewSendAt, showWriteReviewButtonEnabled} from './fulfillment-lines';
 import {reviewLinkState, sameOrderRequest} from '../reviews/request-access';
 import {distributionAfterReview} from '../reviews/admin-review';
 import {histogramBarPercents} from '../reviews/histogram';
@@ -25,6 +25,12 @@ describe('shop review settings and fulfillment requests', () => {
     const schema = readFileSync('prisma/schema.prisma', 'utf8');
     expect(schema).toMatch(/showWriteReviewButton\s+Boolean\s+@default\(false\)/);
     expect(schema).toMatch(/automaticRequests\s+Boolean\s+@default\(false\)/);
+    expect(schema).toMatch(/requestDelayDays\s+Int\s+@default\(2\)/);
+    expect(normalizeReviewDelayDays(undefined)).toBe(2);
+    expect(reviewRequestDelayDays(1)).toBeNull();
+    expect(reviewRequestDelayDays(11)).toBeNull();
+    expect(reviewRequestDelayDays(2)).toBe(2);
+    expect(reviewRequestDelayDays(10)).toBe(10);
     expect(showWriteReviewButtonEnabled(undefined)).toBe(false);
     expect(showWriteReviewButtonEnabled(false)).toBe(false);
     expect(automaticRequestsEnabled(undefined)).toBe(false);
@@ -48,6 +54,18 @@ describe('shop review settings and fulfillment requests', () => {
     expect(second.map((line) => line.productId)).toEqual(['3']);
     expect(requestStatusForLine(0)).toBe('SCHEDULED');
     expect(requestStatusForLine(1)).toBe('PENDING');
+    const september1 = new Date('2026-09-01T10:00:00Z');
+    const september3 = new Date('2026-09-03T10:00:00Z');
+    const latest = latestFulfillmentMoment(latestFulfillmentMoment(null, september1), september3);
+    expect(reviewSendAt(september1, 3).toISOString()).toBe('2026-09-04T10:00:00.000Z');
+    expect(reviewSendAt(latest, 3).toISOString()).toBe('2026-09-06T10:00:00.000Z');
+    expect(planOrderReviewEmail({automatic: false, emailAlreadySent: false, hasWaitingAnchor: false, productAlreadyRequested: false})).toBe('skip');
+    expect(planOrderReviewEmail({automatic: true, emailAlreadySent: false, hasWaitingAnchor: false, productAlreadyRequested: false})).toBe('schedule');
+    expect(planOrderReviewEmail({automatic: true, emailAlreadySent: false, hasWaitingAnchor: true, productAlreadyRequested: false})).toBe('attach');
+    expect(planOrderReviewEmail({automatic: true, emailAlreadySent: true, hasWaitingAnchor: false, productAlreadyRequested: false})).toBe('attach');
+    expect(planOrderReviewEmail({automatic: true, emailAlreadySent: true, hasWaitingAnchor: false, productAlreadyRequested: true})).toBe('keep');
+    expect(orderEmailAlreadySent([{status: 'SENT', sentAt: september1}])).toBe(true);
+    expect(orderEmailAlreadySent([{status: 'SCHEDULED'}])).toBe(false);
   });
 
   it('keeps webhook, email, token, and rating behavior on the existing paths', () => {
@@ -63,8 +81,11 @@ describe('shop review settings and fulfillment requests', () => {
     expect(worker).toContain('deliverReviewEmail');
     expect(worker).toContain('/review-request/');
     expect(readFileSync('app/routes/review.$token.tsx', 'utf8')).toContain("status: 'SENT'");
-    expect(sync).toContain('if (existing) continue');
+    expect(sync).toContain('planOrderReviewEmail');
+    expect(sync).toContain('reviewSendAt');
     expect(sync).toContain('automaticRequestsEnabled');
+    expect(worker).toContain('automaticRequests: true');
+    expect(readFileSync('app/routes/webhooks.ts', 'utf8')).toContain('Shop uninstalled');
     expect(widget).toContain('data.showWriteReviewButton !== true');
     expect(privacy).toContain('reviewRequest.deleteMany');
     expect(readFileSync('app/modules/reviews/review.service.server.ts', 'utf8')).toContain('verifyPurchase');
@@ -88,6 +109,8 @@ describe('shop review settings and fulfillment requests', () => {
     expect(adminPage('0')).toBe(1);
     expect(adminPage('nope')).toBe(1);
     expect(pageCount(6)).toBe(2);
+    expect(adminRangeLabel(2, 6, 'review')).toBe('6–6 of 6 reviews');
+    expect(adminRangeLabel(1, 1, 'request')).toBe('1–1 of 1 request');
     const before = {'5': 1, '4': 2, '3': 0, '2': 1, '1': 0};
     const after = distributionAfterReview(before, 5, 'APPROVED');
     expect(after['5']).toBe(2);

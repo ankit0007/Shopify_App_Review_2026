@@ -25,7 +25,8 @@ describe('admin add review', () => {
     expect(page).toContain('<AddReviewDialog');
     expect(dialog).toContain('Search by title, handle, or SKU');
     expect(dialog).toContain('role="radiogroup"');
-    expect(dialog).toContain('Not verified');
+    expect(dialog).toContain('name="verifiedPurchase"');
+    expect(dialog).toContain('off by default');
   });
 
   it('searches products for the authenticated shop only', () => {
@@ -87,14 +88,19 @@ describe('admin add review', () => {
     const created = adminReviewCreateData({
       shopId: 'shop-a',
       productId: 'product-a',
-      data: {rating: 5, body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', title: 'Great board', status: 'APPROVED', featured: true},
+      data: {rating: 5, body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', title: 'Great board', status: 'APPROVED', featured: true, verifiedPurchase: false},
       now: new Date('2026-10-01T00:00:00Z'),
     });
     expect(created.verifiedPurchase).toBe(false);
+    expect(adminReviewCreateData({
+      shopId: 'shop-a',
+      productId: 'product-a',
+      data: {rating: 5, body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', status: 'PENDING', featured: false, verifiedPurchase: true},
+    }).verifiedPurchase).toBe(true);
     expect(created.shopId).toBe('shop-a');
     expect(created.rating).toBe(5);
     expect(created.submittedAt.toISOString()).toBe('2026-10-01T00:00:00.000Z');
-    expect(readFileSync('app/modules/reviews/admin-review.server.ts', 'utf8')).toContain("metadata: {source: ADMIN_REVIEW_SOURCE}");
+    expect(readFileSync('app/modules/reviews/admin-review.server.ts', 'utf8')).toContain("event: 'review_created'");
     expect(readFileSync('app/storefront/review-widgets.js', 'utf8')).not.toContain('Admin added');
   });
 

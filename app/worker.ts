@@ -1,6 +1,7 @@
 import {db} from './db.server';
 import {config} from './config.server';
 import {decryptData} from './lib/encrypted-data.server';
+import {automaticRequestsEnabled} from './modules/commerce/fulfillment-lines';
 import {syncOrderWebhook, type ShopifyOrderPayload} from './modules/commerce/sync.service.server';
 import {createDeliveryEmailService, deliverReviewEmail, loadEnabledSmtp} from './modules/email/delivery.server';
 import {sanitizeSmtpError} from './modules/email/smtp-config';
@@ -24,7 +25,7 @@ export async function processDueReviewRequests(now = new Date()) {
   });
   for (const request of reminderCandidates) {
     const settings = request.shop.settings;
-    if (!settings || request.reminderCount >= settings.maxReminders) continue;
+    if (!settings || !automaticRequestsEnabled(settings.automaticRequests) || request.shop.uninstalledAt || request.reminderCount >= settings.maxReminders) continue;
     const dueAt = new Date(request.sentAt!.getTime() + settings.reminderDelayDays * 86_400_000);
     if (dueAt > now) continue;
     await db.reviewRequest.updateMany({
@@ -48,8 +49,12 @@ export async function processDueReviewRequests(now = new Date()) {
     });
   }
   const due = await db.reviewRequest.findMany({
-    where: {status: 'SCHEDULED', scheduledAt: {lte: now}},
-    include: {customer: true, product: true, shop: true},
+    where: {
+      status: 'SCHEDULED',
+      scheduledAt: {lte: now},
+      shop: {uninstalledAt: null, settings: {is: {automaticRequests: true}}},
+    },
+    include: {customer: true, product: true, order: true, shop: {include: {settings: true}}},
     take: 100,
   });
   for (const request of due) {
@@ -58,7 +63,14 @@ export async function processDueReviewRequests(now = new Date()) {
       data: {status: 'SENDING'},
     });
     if (claimed.count !== 1) continue;
-    const [optedOut, existingReview] = await Promise.all([
+    if (!automaticRequestsEnabled(request.shop.settings?.automaticRequests)) {
+      await db.reviewRequest.updateMany({
+        where: {id: request.id, status: 'SENDING'},
+        data: {status: 'SCHEDULED'},
+      });
+      continue;
+    }
+    const [optedOut, existingReview, fulfilledProducts] = await Promise.all([
       request.customerId ? db.consent.findFirst({
         where: {shopId: request.shopId, customerId: request.customerId, purpose: 'review_request', granted: false},
         select: {id: true},
@@ -67,7 +79,18 @@ export async function processDueReviewRequests(now = new Date()) {
         where: {shopId: request.shopId, customerId: request.customerId, productId: request.productId, deletedAt: null},
         select: {id: true},
       }) : null,
+      request.orderId ? db.orderItem.findMany({
+        where: {orderId: request.orderId, fulfilledQuantity: {gt: 0}, product: {shopId: request.shopId}},
+        select: {product: {select: {title: true, imageUrl: true}}},
+      }) : Promise.resolve([]),
     ]);
+    if (!fulfilledProducts.length) {
+      await db.reviewRequest.updateMany({
+        where: {id: request.id, status: 'SENDING'},
+        data: {status: 'CANCELLED', lastError: 'No fulfilled products remain'},
+      });
+      continue;
+    }
     if (request.shop.uninstalledAt || !request.product || optedOut || existingReview) {
       await db.reviewRequest.updateMany({
         where: {id: request.id, status: 'SENDING'},
@@ -81,19 +104,20 @@ export async function processDueReviewRequests(now = new Date()) {
       }
       const recipient = decryptData(request.customer.emailEncrypted);
       const token = decryptData(request.tokenEncrypted);
-      const siblings = request.orderId ? await db.reviewRequest.findMany({
-        where: {shopId: request.shopId, orderId: request.orderId, customerId: request.customerId},
-        select: {product: {select: {title: true}}},
-      }) : [];
-      const productName = siblings.map((item) => item.product?.title).filter((title): title is string => Boolean(title)).join(', ') || request.product.title;
+      const products = fulfilledProducts.flatMap((item) => item.product ? [item.product] : []);
+      const productName = products.map((product) => product.title).join(', ') || request.product.title;
+      const customerName = request.customer.displayName?.trim() || 'there';
       const result = await deliverReviewEmail({
         emailService,
         shopId: request.shopId,
-        shopDomain: request.shop.shopDomain,
+        shopDomain: request.shop.name || request.shop.shopDomain,
         reviewRequestId: request.id,
         reminderCount: request.reminderCount,
         recipient,
         productName,
+        orderNumber: request.order?.orderNumber ?? '',
+        customerName,
+        products,
         reviewUrl: `${config.SHOPIFY_APP_URL}/review-request/${encodeURIComponent(token)}`,
         unsubscribeUrl: `${config.SHOPIFY_APP_URL}/unsubscribe/${encodeURIComponent(token)}`,
         secrets: smtp ? [smtp.password, smtp.username] : [],

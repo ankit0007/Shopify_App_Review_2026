@@ -17,15 +17,25 @@ const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.
 async function anchorForToken(token: string) {
   return db.reviewRequest.findUnique({
     where: {tokenHash: hashToken(token)},
-    select: {id: true, shopId: true, orderId: true, customerId: true, productId: true, status: true, expiresAt: true},
+    select: {
+      id: true,
+      shopId: true,
+      orderId: true,
+      customerId: true,
+      productId: true,
+      status: true,
+      expiresAt: true,
+      order: {select: {orderNumber: true}},
+      customer: {select: {displayName: true}},
+    },
   });
 }
 
 export async function loader({request, params}: {request: Request; params: {token?: string}}) {
   const rate = consumeRateLimit(`review-request:${requestClientKey(request)}`, 60, 60_000);
-  if (!rate.allowed) return {state: 'invalid' as const, message: 'Please wait a moment and try again.', products: []};
+  if (!rate.allowed) return {state: 'invalid' as const, message: 'Please wait a moment and try again.', products: [], orderNumber: '', customerName: ''};
   const token = params.token;
-  if (!token) return {state: 'invalid' as const, message: 'This review link is not available.', products: []};
+  if (!token) return {state: 'invalid' as const, message: 'This review link is not available.', products: [], orderNumber: '', customerName: ''};
   const anchor = await anchorForToken(token);
   const state = reviewLinkState(anchor);
   if (!anchor || state !== 'ready') {
@@ -33,6 +43,8 @@ export async function loader({request, params}: {request: Request; params: {toke
       state,
       message: state === 'expired' ? 'This review link has expired.' : 'This review link is not available.',
       products: [],
+      orderNumber: '',
+      customerName: '',
     };
   }
   const requests = anchor.orderId ? await db.reviewRequest.findMany({
@@ -50,6 +62,8 @@ export async function loader({request, params}: {request: Request; params: {toke
   return {
     state: 'ready' as const,
     message: '',
+    orderNumber: anchor.order?.orderNumber ?? '',
+    customerName: anchor.customer?.displayName ?? '',
     products: requests.flatMap((item) => item.product ? [{
       id: item.product.shopifyProductId,
       title: item.product.title,
@@ -82,6 +96,13 @@ export async function action({request, params}: {request: Request; params: {toke
   if (!target?.productId || !sameOrderRequest(anchor, target) && target?.id !== anchor.id) {
     return {ok: false, message: 'That product is not part of this review link.'};
   }
+  if (target.orderId) {
+    const fulfilled = await db.orderItem.findFirst({
+      where: {orderId: target.orderId, productId: target.productId, fulfilledQuantity: {gt: 0}, product: {shopId: anchor.shopId}},
+      select: {id: true},
+    });
+    if (!fulfilled) return {ok: false, message: 'That product is not part of this review link.'};
+  }
   if (target.status === 'SUBMITTED') return {ok: true, productId, submitted: true, message: 'Review submitted. Thank you for sharing your experience.'};
   const parsed = publicReviewSubmissionSchema.safeParse({
     rating: form.get('rating'),
@@ -105,7 +126,7 @@ export async function action({request, params}: {request: Request; params: {toke
       productId,
       submitted: true,
       message: pending
-        ? 'Thank you. Your review has been submitted and is awaiting approval.'
+        ? 'Thank you! Your review has been submitted and is awaiting approval.'
         : 'Thank you. Your review is now published.',
     };
   } catch {
@@ -118,19 +139,20 @@ export default function ReviewRequestPage() {
   return (
     <main className="request-page">
       <header>
-        <h1>How was your purchase?</h1>
-        <p>Share your experience with the products you received.</p>
+        <h1>Review your recent purchases</h1>
+        {data.orderNumber ? <p>Order #{data.orderNumber}</p> : null}
+        <p>We&apos;d love to hear what you think</p>
       </header>
       {data.state !== 'ready' ? <p className="request-page__note" role="alert">{data.message}</p> : null}
       <div className="request-page__list">
-        {data.products.map((product) => <ProductReview key={product.id} product={product} />)}
+        {data.products.map((product) => <ProductReview key={product.id} product={product} customerName={data.customerName} />)}
       </div>
       <style>{PAGE_CSS}</style>
     </main>
   );
 }
 
-function ProductReview({product}: {product: {id: string; title: string; imageUrl: string | null; submitted: boolean}}) {
+function ProductReview({product, customerName}: {product: {id: string; title: string; imageUrl: string | null; submitted: boolean}; customerName: string}) {
   const fetcher = useFetcher<typeof action>();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -143,7 +165,11 @@ function ProductReview({product}: {product: {id: string; title: string; imageUrl
         <h2>{product.title}</h2>
       </div>
       {done ? (
-        <p className="request-page__note" role="status">Review submitted. Thank you for sharing your experience.</p>
+        <p className="request-page__note" role="status">
+          {fetcher.data?.submitted && fetcher.data.message
+            ? fetcher.data.message
+            : 'Review submitted. Thank you for sharing your experience.'}
+        </p>
       ) : (
         <fetcher.Form method="post">
           <input type="hidden" name="productId" value={product.id} />
@@ -162,7 +188,7 @@ function ProductReview({product}: {product: {id: string; title: string; imageUrl
                   onMouseLeave={() => setHover(0)}
                   onClick={() => setRating(value)}
                 >
-                  <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><path d={STAR_PATH} fill={value <= shown ? '#F5B301' : '#D9DDE3'} /></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={STAR_PATH} fill={value <= shown ? '#F5B301' : '#D9DDE3'} /></svg>
                 </button>
               ))}
             </div>
@@ -173,7 +199,7 @@ function ProductReview({product}: {product: {id: string; title: string; imageUrl
           <label htmlFor={`body-${product.id}`}>Your review</label>
           <textarea id={`body-${product.id}`} name="body" required minLength={10} maxLength={5000} rows={4} />
           <label htmlFor={`name-${product.id}`}>Display name</label>
-          <input id={`name-${product.id}`} name="displayName" required maxLength={60} />
+          <input id={`name-${product.id}`} name="displayName" required maxLength={60} defaultValue={customerName} />
           {fetcher.data && 'message' in fetcher.data && !fetcher.data.ok ? <p className="request-page__error" role="alert">{fetcher.data.message}</p> : null}
           <button type="submit" disabled={fetcher.state !== 'idle'}>{fetcher.state === 'idle' ? 'Submit review' : 'Submitting…'}</button>
         </fetcher.Form>
@@ -194,6 +220,7 @@ const PAGE_CSS = `
 .request-card fieldset { border: 0; margin: 0; padding: 0; }
 .request-card [role="radiogroup"] { display: flex; gap: 4px; }
 .request-card button[role="radio"] { border: 0; background: transparent; padding: 4px; border-radius: 8px; cursor: pointer; }
+.request-card button[role="radio"] svg { width: 22px; height: 22px; display: block; }
 .request-card input, .request-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9cccf; border-radius: 8px; font: inherit; }
 .request-card label span { color: #6d7175; font-weight: 500; }
 .request-card button[type="submit"] { border: 0; border-radius: 8px; background: #111; color: #fff; font-weight: 700; padding: 12px 16px; cursor: pointer; }
@@ -204,5 +231,6 @@ const PAGE_CSS = `
   .request-page { padding-inline: 12px; }
   .request-card__product { align-items: flex-start; }
   .request-card button[type="submit"] { width: 100%; }
+  .request-card button[role="radio"] svg { width: 20px; height: 20px; }
 }
 `;

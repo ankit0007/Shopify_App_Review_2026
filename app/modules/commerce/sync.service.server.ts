@@ -1,7 +1,7 @@
 import {db} from '../../db.server';
 import {encryptData} from '../../lib/encrypted-data.server';
 import {createReviewToken} from '../../lib/tokens.server';
-import {automaticRequestsEnabled, reviewableFulfilledLines, shopifyOrderId, type CommercePayload} from './fulfillment-lines';
+import {automaticRequestsEnabled, fulfillmentMoment, latestFulfillmentMoment, orderEmailAlreadySent, planOrderReviewEmail, reviewableFulfilledLines, reviewSendAt, shopifyOrderId, type CommercePayload} from './fulfillment-lines';
 
 export type ShopifyOrderPayload = CommercePayload & {
   customer?: {id?: number | string; email?: string; first_name?: string; last_name?: string} | null;
@@ -63,16 +63,20 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
 
     const existingOrder = await tx.order.findUnique({
       where: {shopId_shopifyOrderId: {shopId, shopifyOrderId: shopifyOrder}},
-      select: {customerId: true},
+      select: {customerId: true, fulfillmentDate: true},
     });
     customerId = customerId ?? existingOrder?.customerId ?? undefined;
+    const incomingFulfillment = fulfilledLines.size ? fulfillmentMoment(payload) : null;
+    const fulfillmentDate = incomingFulfillment
+      ? latestFulfillmentMoment(existingOrder?.fulfillmentDate, incomingFulfillment)
+      : undefined;
 
     const order = await tx.order.upsert({
       where: {shopId_shopifyOrderId: {shopId, shopifyOrderId: shopifyOrder}},
       update: {
         orderNumber: String(payload.order_number ?? ''),
         status: payload.fulfillment_status ?? payload.status,
-        fulfillmentDate: payload.fulfilled_at ? new Date(payload.fulfilled_at) : fulfilledLines.size ? new Date() : undefined,
+        ...(fulfillmentDate ? {fulfillmentDate} : {}),
         ...(customerId ? {customerId} : {}),
       },
       create: {
@@ -80,12 +84,25 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
         shopifyOrderId: shopifyOrder,
         orderNumber: String(payload.order_number ?? ''),
         status: payload.fulfillment_status ?? payload.status,
-        fulfillmentDate: payload.fulfilled_at ? new Date(payload.fulfilled_at) : fulfilledLines.size ? new Date() : undefined,
+        fulfillmentDate,
         customerId,
       },
     });
 
-    let queuedEmail = false;
+    const shop = await tx.shop.findUnique({
+      where: {id: shopId},
+      select: {uninstalledAt: true, settings: {select: {automaticRequests: true, requestDelayDays: true, requestExpirationDays: true}}},
+    });
+    const automatic = !shop?.uninstalledAt && automaticRequestsEnabled(shop?.settings?.automaticRequests);
+    const scheduledAt = reviewSendAt(fulfillmentDate ?? incomingFulfillment ?? new Date(), shop?.settings?.requestDelayDays);
+    const expiresAt = new Date(scheduledAt.getTime() + (shop?.settings?.requestExpirationDays ?? 30) * 86_400_000);
+    const orderRequests = customerId ? await tx.reviewRequest.findMany({
+      where: {shopId, orderId: order.id, customerId},
+      select: {id: true, productId: true, status: true, sentAt: true},
+    }) : [];
+    const emailAlreadySent = orderEmailAlreadySent(orderRequests);
+    let hasWaitingAnchor = orderRequests.some((request) => request.status === 'SCHEDULED' || request.status === 'FAILED');
+
     for (const item of payload.line_items ?? []) {
       if (!item.product_id || item.gift_card) continue;
       const shopifyProductId = String(item.product_id);
@@ -108,26 +125,23 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
       });
 
       if (!fulfilled || !customerId) continue;
-      const shop = await tx.shop.findUnique({where: {id: shopId}, select: {uninstalledAt: true, settings: {select: {automaticRequests: true, requestDelayDays: true, requestExpirationDays: true}}}});
-      if (shop?.uninstalledAt || !automaticRequestsEnabled(shop?.settings?.automaticRequests)) continue;
       const optedOut = await tx.consent.findFirst({
         where: {shopId, customerId, purpose: 'review_request', granted: false},
         select: {id: true},
       });
-      if (optedOut) continue;
       const reviewed = await tx.review.findFirst({
         where: {shopId, productId: product.id, customerId, deletedAt: null},
         select: {id: true},
       });
-      if (reviewed) continue;
-      const existing = await tx.reviewRequest.findFirst({
-        where: {shopId, orderId: order.id, productId: product.id, customerId},
-        select: {id: true},
+      const existing = orderRequests.find((request) => request.productId === product.id);
+      const plan = planOrderReviewEmail({
+        automatic: automatic && !optedOut && !reviewed,
+        emailAlreadySent,
+        hasWaitingAnchor,
+        productAlreadyRequested: Boolean(existing),
       });
-      if (existing) continue;
+      if (plan === 'skip' || plan === 'keep' || plan === 'reschedule') continue;
       const reviewToken = createReviewToken();
-      const scheduledAt = new Date(Date.now() + (shop?.settings?.requestDelayDays ?? 7) * 86_400_000);
-      const expiresAt = new Date(scheduledAt.getTime() + (shop?.settings?.requestExpirationDays ?? 30) * 86_400_000);
       await tx.reviewRequest.create({
         data: {
           shopId,
@@ -136,12 +150,20 @@ export async function syncOrderWebhook(shopId: string, payload: ShopifyOrderPayl
           customerId,
           tokenHash: reviewToken.tokenHash,
           tokenEncrypted: encryptData(reviewToken.token),
-          status: queuedEmail ? 'PENDING' : 'SCHEDULED',
-          scheduledAt,
+          status: plan === 'schedule' ? 'SCHEDULED' : 'PENDING',
+          scheduledAt: plan === 'schedule' ? scheduledAt : null,
           expiresAt,
         },
       });
-      queuedEmail = true;
+      if (plan === 'schedule') hasWaitingAnchor = true;
+      orderRequests.push({id: reviewToken.tokenHash, productId: product.id, status: plan === 'schedule' ? 'SCHEDULED' : 'PENDING', sentAt: null});
+    }
+
+    if (automatic && customerId && hasWaitingAnchor && !emailAlreadySent) {
+      await tx.reviewRequest.updateMany({
+        where: {shopId, orderId: order.id, customerId, status: {in: ['SCHEDULED', 'FAILED']}},
+        data: {status: 'SCHEDULED', scheduledAt, expiresAt, lastError: null},
+      });
     }
   });
 }
