@@ -3,10 +3,13 @@ import {config} from '../app/config.server';
 import {decryptData, encryptData} from '../app/lib/encrypted-data.server';
 import {createReviewToken} from '../app/lib/tokens.server';
 import {maskEmail} from '../app/modules/email/delivery.server';
-import {DEFAULT_TEST_RECIPIENT} from '../app/modules/reviews/request-test';
 import {processDueReviewRequests} from '../app/worker';
 
-const RECIPIENT = DEFAULT_TEST_RECIPIENT;
+const RECIPIENT = process.argv[2] || '';
+if (!RECIPIENT) {
+  console.log('usage=send-shown-order.ts <test-recipient>');
+  process.exit(1);
+}
 const ORDER_NUMBER = '1003';
 const ORDER_KEY = 'name:1003';
 const CUSTOMER_NAME = 'Ayumu Hirano';

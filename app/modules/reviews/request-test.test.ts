@@ -4,7 +4,6 @@ import { decideRetry } from '../email/retry';
 import { createReviewToken, hashToken } from '../../lib/tokens.server';
 import { reviewLinkState } from './request-access';
 import {
-  DEFAULT_TEST_RECIPIENT,
   parseOrderNumber,
   parseTestRecipient,
   productReviewDone,
@@ -23,16 +22,16 @@ describe('review request test mode', () => {
   });
 
   it('uses the supplied test recipient and never the customer address', () => {
-    expect(parseTestRecipient(`  ${DEFAULT_TEST_RECIPIENT} `)).toBe(DEFAULT_TEST_RECIPIENT);
+    expect(parseTestRecipient('  reviewer@example.com ')).toBe('reviewer@example.com');
     expect(resolveReviewRecipient({
       mode: 'test',
       customerEmail: 'customer@example.com',
-      testRecipient: DEFAULT_TEST_RECIPIENT,
-    })).toEqual({ok: true, recipient: DEFAULT_TEST_RECIPIENT, test: true});
+      testRecipient: 'reviewer@example.com',
+    })).toEqual({ok: true, recipient: 'reviewer@example.com', test: true});
   });
 
   it('blocks a normal request when Shopify does not provide a customer email', () => {
-    expect(resolveReviewRecipient({mode: 'automatic', customerEmail: null, testRecipient: DEFAULT_TEST_RECIPIENT})).toEqual({
+    expect(resolveReviewRecipient({mode: 'automatic', customerEmail: null, testRecipient: 'reviewer@example.com'})).toEqual({
       ok: false,
       blocked: true,
       reason: PROTECTED_CUSTOMER_DATA_REASON,
@@ -40,7 +39,8 @@ describe('review request test mode', () => {
   });
 
   it('lets a TEST request continue with the supplied recipient when the customer email is unavailable', () => {
-    expect(resolveReviewRecipient({mode: 'test', customerEmail: null, testRecipient: DEFAULT_TEST_RECIPIENT}).ok).toBe(true);
+    expect(resolveReviewRecipient({mode: 'test', customerEmail: null, testRecipient: 'reviewer@example.com'}).ok).toBe(true);
+    expect(resolveReviewRecipient({mode: 'test', customerEmail: null, testRecipient: null}).ok).toBe(false);
   });
 
   it('redacts secrets from Shopify errors', () => {

@@ -9,7 +9,6 @@ import {maskEmail} from '../modules/email/delivery.server';
 import {deliveryLabel} from '../modules/email/delivery-state';
 import {adminPage, adminPageSize, pageCount} from '../modules/admin/page';
 import {reviewEmailTrigger} from '../modules/commerce/fulfillment-lines';
-import {DEFAULT_TEST_RECIPIENT} from '../modules/reviews/request-test';
 import {createTestReviewRequest, queueReviewRequest} from '../modules/reviews/request-test.server';
 
 export async function loader({request}: {request: Request}) {
@@ -164,7 +163,7 @@ export default function ReviewRequests() {
           </label>
           <label className="grid min-w-64 gap-1 text-xs font-semibold text-[#6d7175]">
             TEST recipient
-            <input name="testRecipient" type="email" defaultValue={DEFAULT_TEST_RECIPIENT} className="min-h-10 rounded-lg border border-[#c9cccf] px-3 text-sm font-normal text-[#202223]" autoComplete="off" />
+            <input name="testRecipient" type="email" required placeholder="Enter an email address" className="min-h-10 rounded-lg border border-[#c9cccf] px-3 text-sm font-normal text-[#202223]" autoComplete="off" />
           </label>
           <input type="hidden" name="intent" value="test" />
           <button type="submit" className="min-h-10 rounded-lg bg-[#008060] px-3 text-sm font-semibold text-white" disabled={navigation.state === 'submitting'}>Send test review request</button>

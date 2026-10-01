@@ -1,5 +1,4 @@
 export const PROTECTED_CUSTOMER_DATA_REASON = 'Protected customer data access required';
-export const DEFAULT_TEST_RECIPIENT = 'ankit.friend07@gmail.com';
 
 export function parseOrderNumber(value: string) {
   const trimmed = value.trim().replace(/^#/, '');

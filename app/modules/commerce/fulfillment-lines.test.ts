@@ -99,6 +99,8 @@ describe('shop review settings and fulfillment requests', () => {
     expect(worker).toContain('automaticRequests: true');
     expect(readFileSync('app/routes/webhooks.ts', 'utf8')).toContain('Shop uninstalled');
     expect(widget).toContain('data.showWriteReviewButton !== true');
+    expect(widget).toContain("link.dataset.viewAll = '1'");
+    expect(widget).toContain("'/apps/shopify-review/reviews'");
     expect(privacy).toContain('reviewRequest.deleteMany');
     expect(readFileSync('app/modules/reviews/review.service.server.ts', 'utf8')).toContain('verifyPurchase');
     expect(readFileSync('app/modules/reviews/moderation.service.server.ts', 'utf8')).toContain('invalidateRatingCache');

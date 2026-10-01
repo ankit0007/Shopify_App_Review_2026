@@ -10,10 +10,10 @@ describe('CSRF origin checks', () => {
   it('allows the public https origin when nginx forwards the app over http', () => {
     expect(isSameOrigin(new Request('http://127.0.0.1:3500/app/settings', {
       headers: {
-        origin: 'https://shopifyreview.it3.in',
-        host: 'shopifyreview.it3.in',
+        origin: 'https://productreviews.it3.in',
+        host: 'productreviews.it3.in',
         'x-forwarded-proto': 'https',
-        'x-forwarded-host': 'shopifyreview.it3.in',
+        'x-forwarded-host': 'productreviews.it3.in',
       },
     }))).toBe(true);
   });

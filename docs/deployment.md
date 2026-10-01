@@ -19,7 +19,7 @@ docker compose -p shopifyreview -f docker-compose.production.yml up -d --build
 
 The app container runs `prisma migrate deploy` before starting. This command must only be run against the dedicated `shopify_review_db` container.
 
-Deploy the web process behind the existing Nginx only after confirming that port 3500 is unused. The dedicated server block must use `server_name shopifyreview.it3.in` and proxy to `http://127.0.0.1:3500`.
+Deploy the web process behind the existing Nginx only after confirming that port 3500 is unused. The dedicated server block must use `server_name productreviews.it3.in` and proxy to `http://127.0.0.1:3500`.
 
 Required production environment values are documented in `.env.example`. Rotate secrets through the hosting provider, not Git. For a non-container database, run `npm run db:deploy` during a controlled release before starting the new app version.
 

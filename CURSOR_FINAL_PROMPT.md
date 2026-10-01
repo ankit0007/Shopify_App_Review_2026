@@ -7,10 +7,10 @@
 
 ---
 
-You are the lead engineer finishing the Shopify app in this repository (`ankit0007/Shopify_Review`) for Shopify App Store submission. Stack already in place: React Router 7 + `@shopify/shopify-app-react-router`, Polaris 13, Prisma 6 + PostgreSQL, Docker Compose, a theme app extension at `extensions/review-widgets`, a worker (`app/worker.ts`), and production host `https://shopifyreview.it3.in`.
+You are the lead engineer finishing the Shopify app in this repository (`ankit0007/Shopify_Review`) for Shopify App Store submission. Stack already in place: React Router 7 + `@shopify/shopify-app-react-router`, Polaris 13, Prisma 6 + PostgreSQL, Docker Compose, a theme app extension at `extensions/review-widgets`, a worker (`app/worker.ts`), and production host `https://productreviews.it3.in`.
 
 Read these first and treat them as the source of truth for what already exists and what is still broken:
-`docs/development-store-e2e-report.md`, `docs/app-store-submission-checklist.md`, `docs/deployment.md`, `docs/security.md`, `shopify.app.toml`, `docker-compose.production.yml`, `deploy/nginx/shopifyreview.it3.in.conf`, `prisma/schema.prisma`, `extensions/review-widgets/**`, `app/routes/**`.
+`docs/development-store-e2e-report.md`, `docs/app-store-submission-checklist.md`, `docs/deployment.md`, `docs/security.md`, `shopify.app.toml`, `docker-compose.production.yml`, `deploy/nginx/productreviews.it3.in.conf`, `prisma/schema.prisma`, `extensions/review-widgets/**`, `app/routes/**`.
 
 Do not rewrite working modules. Do not migrate away from Polaris React, React Router, or Prisma. Improve, finish, and ship.
 
@@ -34,7 +34,7 @@ If a value is blank, do not invent it. Use a clearly marked `TODO_OWNER` placeho
 ## 1. Authorization and safety rules for this run
 
 - **Production deployment IS explicitly authorized in this run** (sections 7 and 8), including `shopify app deploy`. Earlier sessions stopped because deployment was not authorized; that restriction is lifted now.
-- The VPS hosts other applications. Touch only: the `shopifyreview` Docker Compose project, containers/volume/network prefixed `shopifyreview-`, and the nginx server block for `shopifyreview.it3.in`. Never stop, prune, or edit anything else. Never run `docker system prune`, `docker volume prune`, or restart nginx without `nginx -t` passing first.
+- The VPS hosts other applications. Touch only: the `shopifyreview` Docker Compose project, containers/volume/network prefixed `shopifyreview-`, and the nginx server block for `productreviews.it3.in`. Never stop, prune, or edit anything else. Never run `docker system prune`, `docker volume prune`, or restart nginx without `nginx -t` passing first.
 - Always back up the production database before running migrations.
 - Never commit secrets. Never print secrets to the terminal output or logs.
 - No placeholder text, "coming soon" screens, lorem ipsum, or dead navigation links may remain. Shopify reviewers reject apps for this.
@@ -42,7 +42,7 @@ If a value is blank, do not invent it. Use a clearly marked `TODO_OWNER` placeho
 
 ## 2. Root cause of the bug in the current storefront screenshot
 
-On the dev store product page, the compact rating under the title says "No reviews yet" while the review section below lists 2 reviews at 4.0. Per `docs/development-store-e2e-report.md`, `GET https://shopifyreview.it3.in/api/public/ratings` returns **404 from nginx**: the ratings route exists only locally, production runs an older build. Deploying the current code (section 7) fixes the data. Additionally verify in code that the compact rating and the full section read from the same approved-review aggregate so they can never disagree, and that a failed ratings request shows nothing (not "No reviews yet").
+On the dev store product page, the compact rating under the title says "No reviews yet" while the review section below lists 2 reviews at 4.0. Per `docs/development-store-e2e-report.md`, `GET https://productreviews.it3.in/api/public/ratings` returns **404 from nginx**: the ratings route exists only locally, production runs an older build. Deploying the current code (section 7) fixes the data. Additionally verify in code that the compact rating and the full section read from the same approved-review aggregate so they can never disagree, and that a failed ratings request shows nothing (not "No reviews yet").
 
 Also fix: review cards currently show the literal heading "Review" when a review has no title. If `title` is null/empty, render no title at all.
 
@@ -129,16 +129,16 @@ Local gate first: `npm ci`, the full check command from section 1, then commit w
 
 On the server (`ssh SSH_TARGET`, `cd SERVER_APP_DIR`):
 1. `git fetch && git status` — if there are local changes on the server, stop and report them; do not discard.
-2. Verify `.env.production` exists and contains every key in `.env.example` (print key names only, never values). Required at minimum: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL=https://shopifyreview.it3.in`, `SCOPES`, `DATABASE_URL` (compose overrides), encryption/session secrets, email/SMTP settings. Report missing keys and stop if Shopify keys are missing.
+2. Verify `.env.production` exists and contains every key in `.env.example` (print key names only, never values). Required at minimum: `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL=https://productreviews.it3.in`, `SCOPES`, `DATABASE_URL` (compose overrides), encryption/session secrets, email/SMTP settings. Report missing keys and stop if Shopify keys are missing.
 3. Backup: `docker exec shopifyreview-db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > ~/backups/shopifyreview-$(date +%F-%H%M).dump` (create `~/backups` if needed). Skip only if the DB container does not exist yet (first deploy).
 4. `git pull --ff-only origin main`
 5. `docker compose -p shopifyreview -f docker-compose.production.yml up -d --build` (migrations run on app start via `prisma migrate deploy`).
 6. Wait for health: `curl -fsS http://127.0.0.1:3500/health` retry up to 60 s. If it fails: `docker logs --tail 200 shopifyreview-app`, fix, redeploy. If unrecoverable, roll back to the previous commit and restore nothing unless a migration broke data.
-7. Nginx: if `/etc/nginx/sites-enabled/shopifyreview.it3.in.conf` (or the conf.d equivalent used on this host) is missing, install `deploy/nginx/shopifyreview.it3.in.conf`, run `sudo nginx -t`, then `sudo systemctl reload nginx`. If no certificate exists, `sudo certbot --nginx -d shopifyreview.it3.in --non-interactive --agree-tos -m SUPPORT_EMAIL`.
+7. Nginx: if `/etc/nginx/sites-enabled/productreviews.it3.in.conf` (or the conf.d equivalent used on this host) is missing, install `deploy/nginx/productreviews.it3.in.conf`, run `sudo nginx -t`, then `sudo systemctl reload nginx`. If no certificate exists, `sudo certbot --nginx -d productreviews.it3.in --non-interactive --agree-tos -m SUPPORT_EMAIL`.
 8. Smoke tests from outside the server:
-   - `https://shopifyreview.it3.in/health` → 200
+   - `https://productreviews.it3.in/health` → 200
    - `/`, `/privacy`, `/terms`, `/support`, `/help` → 200 with correct content
-   - `https://shopifyreview.it3.in/api/public/ratings?productIds=1` unsigned → **401** (proves route is deployed; 404 means old build)
+   - `https://productreviews.it3.in/api/public/ratings?productIds=1` unsigned → **401** (proves route is deployed; 404 means old build)
    - `POST /webhooks` with bad HMAC → 401
    - worker container running: `docker ps --filter name=shopifyreview-worker`
 
@@ -205,11 +205,11 @@ Sections: 1 Acceptance (installing the App means accepting these terms and Shopi
 
 ## Appendix C — Owner's Partner Dashboard steps (list these in the final output)
 
-1. App setup → confirm App URL and redirect URL are `https://shopifyreview.it3.in`.
+1. App setup → confirm App URL and redirect URL are `https://productreviews.it3.in`.
 2. API access → **Protected customer data**: request access, select name and email fields, explain use (review request emails, verified purchase), confirm data protection answers.
 3. Pricing → Managed pricing: start with a Free plan (add Pro later once billing is tested).
 4. Distribution → Public (App Store).
-5. App listing: name {APP_DISPLAY_NAME}, 1200×1200 icon, 3–6 screenshots at 1600×900 (storefront widget, compact rating, admin moderation, settings), feature bullets, description, privacy policy URL `https://shopifyreview.it3.in/privacy`, support email, FAQ/support URL `/support`, demo screencast (install → add blocks → submit review → approve → shows on store).
+5. App listing: name {APP_DISPLAY_NAME}, 1200×1200 icon, 3–6 screenshots at 1600×900 (storefront widget, compact rating, admin moderation, settings), feature bullets, description, privacy policy URL `https://productreviews.it3.in/privacy`, support email, FAQ/support URL `/support`, demo screencast (install → add blocks → submit review → approve → shows on store).
 6. Testing instructions for reviewers: dev store URL, storefront password, steps to add the blocks, and note that reviews need approval.
 7. Emergency developer contact filled in.
 8. Run the automated pre-submission checks in the listing page, fix anything flagged, then Submit for review.

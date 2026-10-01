@@ -44,7 +44,7 @@ describe('global storefront reviews', () => {
   });
 
   it('rejects an App Proxy request without a valid signature', () => {
-    const url = new URL('https://shopifyreview.it3.in/api/public/reviews?shop=sftp-7qtjiorq.myshopify.com&format=json');
+    const url = new URL('https://productreviews.it3.in/api/public/reviews?shop=sftp-7qtjiorq.myshopify.com&format=json');
     expect(verifyAppProxySignature(url, 'proxy-secret')).toBe(false);
   });
 

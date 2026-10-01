@@ -22,8 +22,8 @@ export async function action({request}: {request: Request}) {
         shopName: 'Example Shop',
         customerName: 'Avery <Customer>',
         productName: 'Example Product',
-        reviewUrl: 'https://shopifyreview.it3.in/review/example',
-        unsubscribeUrl: 'https://shopifyreview.it3.in/unsubscribe/example',
+        reviewUrl: 'https://productreviews.it3.in/review/example',
+        unsubscribeUrl: 'https://productreviews.it3.in/unsubscribe/example',
       }, 'html'),
     };
   }

@@ -2,11 +2,14 @@ import {db} from '../app/db.server';
 import {config} from '../app/config.server';
 import {decryptData} from '../app/lib/encrypted-data.server';
 import {maskEmail} from '../app/modules/email/delivery.server';
-import {DEFAULT_TEST_RECIPIENT} from '../app/modules/reviews/request-test';
 import {createTestReviewRequest} from '../app/modules/reviews/request-test.server';
 
-const orderNumber = process.argv[2] || '1003';
-const testRecipient = process.argv[3] || DEFAULT_TEST_RECIPIENT;
+const orderNumber = process.argv[2] || '';
+const testRecipient = process.argv[3] || '';
+if (!orderNumber || !testRecipient) {
+  console.log('usage=send-test-review-request.ts <order-number> <test-recipient>');
+  process.exit(1);
+}
 const session = await db.session.findFirst({
   where: {isOnline: false, accessToken: {not: ''}},
   select: {shop: true, accessToken: true},

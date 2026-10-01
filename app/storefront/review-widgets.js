@@ -77,7 +77,20 @@
     return payload.data;
   }
 
+  function placeViewAll(root) {
+    if (root.querySelector('[data-view-all]')) return;
+    const heading = root.querySelector('.sr__title');
+    if (!heading) return;
+    const link = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
+    link.href = '/apps/shopify-review/reviews';
+    link.dataset.viewAll = '1';
+    const row = el('div', 'sr__heading');
+    heading.replaceWith(row);
+    row.append(heading, link);
+  }
+
   function renderSummary(root, data) {
+    placeViewAll(root);
     const summary = root.querySelector('[data-summary]');
     summary.replaceChildren();
     summary.removeAttribute('aria-hidden');
@@ -137,10 +150,8 @@
     write.hidden = data.showWriteReviewButton !== true || root.dataset.showForm === 'false';
     if (write.hidden) write.style.setProperty('display', 'none', 'important');
     write.addEventListener('click', () => openForm(root, write));
-    const viewAll = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
-    viewAll.href = '/apps/shopify-review/reviews';
     const actions = el('div', 'sr__actions');
-    actions.append(write, viewAll);
+    actions.append(write);
     summary.append(score, bars, actions);
   }
 

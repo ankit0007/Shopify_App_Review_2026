@@ -1,6 +1,6 @@
 name = "Product Reviews"
 client_id = "b3aa63efab132571c2c9f2de3a8dbb6c"
-application_url = "https://shopifyreview.it3.in"
+application_url = "https://productreviews.it3.in"
 embedded = true
 
 [access_scopes]
@@ -8,7 +8,7 @@ scopes = "read_products,read_orders,read_customers"
 
 [auth]
 redirect_urls = [
-  "https://shopifyreview.it3.in/auth/callback"
+  "https://productreviews.it3.in/auth/callback"
 ]
 
 [webhooks]
@@ -27,6 +27,6 @@ topics = ["orders/fulfilled", "fulfillments/create"]
 uri = "/webhooks"
 
 [app_proxy]
-url = "https://shopifyreview.it3.in/api/public"
+url = "https://productreviews.it3.in/api/public"
 subpath = "shopify-review"
 prefix = "apps"

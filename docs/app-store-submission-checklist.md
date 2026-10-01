@@ -2,7 +2,7 @@
 
 Date: 2026-09-29
 
-This checklist is for the Phase 1 Product Reviews app at `https://shopifyreview.it3.in`. Production was not deployed or submitted during this pass. Do not treat a local PASS as a live-store PASS.
+This checklist is for the Phase 1 Product Reviews app at `https://productreviews.it3.in`. Production was not deployed or submitted during this pass. Do not treat a local PASS as a live-store PASS.
 
 ## Phase 2 — not in this release
 
@@ -13,7 +13,7 @@ AI review generation, AI moderation, rewards, video transcoding, advanced analyt
 | Item | Status | What remains |
 | --- | --- | --- |
 | App name | PASS | `shopify.app.toml` name is Product Reviews. |
-| Application URL and OAuth callback | PASS | Both use `https://shopifyreview.it3.in`. No ngrok URL is configured. |
+| Application URL and OAuth callback | PASS | Both use `https://productreviews.it3.in`. No ngrok URL is configured. |
 | Managed installation | PASS | Embedded app uses the Shopify React Router auth path. A staff login on the development store was not repeated in this pass. |
 | Scopes | PASS | `read_products`, `read_orders`, `read_customers`. Protected customer data approval is still a Partner Dashboard step. |
 | Multi-tenant isolation | PASS | Shop-scoped queries and purchase matching require the same shop, customer, fulfilled order, and line-item product. |
@@ -31,7 +31,7 @@ AI review generation, AI moderation, rewards, video transcoding, advanced analyt
 | App Proxy | PASS | Signed storefront requests and direct unsigned requests were tested earlier. Cross-shop data is filtered by the shop domain on the signed request. |
 | Billing | PARTIAL | The plan page reads Shopify subscription status and shows Free unless the status is `active`. No charge is created in tests. Partner Dashboard still needs Free and Pro App Pricing handles. Starter and Growth remain internal mappings only if Shopify returns those handles. |
 | Photo and video | NOT CONFIGURED | The review link hides the file input when storage environment variables are empty. A posted file is rejected before a review is saved. Advanced media processing is Phase 2. |
-| HTTPS and Nginx | MANUAL ACTION REQUIRED | `deploy/nginx/shopifyreview.it3.in.conf` proxies only `shopifyreview.it3.in` to `127.0.0.1:3500`. It has not been installed. |
+| HTTPS and Nginx | MANUAL ACTION REQUIRED | `deploy/nginx/productreviews.it3.in.conf` proxies only `productreviews.it3.in` to `127.0.0.1:3500`. It has not been installed. |
 | Docker | PASS | `docker-compose.production.yml` defines `shopifyreview-app`, `shopifyreview-db`, a private network, a named volume, no public database port, and localhost `3500`. It was not started on the VPS. |
 | Production database | MANUAL ACTION REQUIRED | Migrations through `0007_platform_smtp_admin` are applied on local `shopify_review_dev` only. |
 | Production SMTP | MANUAL ACTION REQUIRED | Enter hostname, port, and TLS mode in `/admin/smtp` after a read-only inspection. Do not copy another app's password into Git. |

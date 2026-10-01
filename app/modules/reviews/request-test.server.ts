@@ -3,7 +3,6 @@ import {encryptData} from '../../lib/encrypted-data.server';
 import {createReviewToken} from '../../lib/tokens.server';
 import {loadEnabledSmtp} from '../email/delivery.server';
 import {
-  DEFAULT_TEST_RECIPIENT,
   parseOrderNumber,
   parseTestRecipient,
   reviewEmailAlreadySent,
@@ -60,7 +59,7 @@ export async function createTestReviewRequest(input: {
 }) {
   const orderNumber = parseOrderNumber(input.orderNumber);
   if (!orderNumber) return {ok: false as const, error: 'Enter a Shopify order number such as 1003.'};
-  const testRecipient = parseTestRecipient(input.testRecipient || DEFAULT_TEST_RECIPIENT);
+  const testRecipient = parseTestRecipient(input.testRecipient ?? '');
   if (!testRecipient) return {ok: false as const, error: 'Enter a valid TEST recipient.'};
   const smtp = await loadEnabledSmtp();
   if (!smtp) return {ok: false as const, error: SMTP_NOT_CONFIGURED};

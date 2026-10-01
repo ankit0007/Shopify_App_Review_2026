@@ -295,7 +295,7 @@ Production VPS `187.124.157.194` was not contacted. Production Nginx, Docker, da
 
 Date: 2026-09-29
 
-Local code now declares the three mandatory compliance webhook topics in `shopify.app.toml` and returns HTTP 200 for those topics when the shop is already gone. The review-link form hides photo and video upload until object storage is configured, and a posted file is rejected before a review is saved. `deploy/nginx/shopifyreview.it3.in.conf` is prepared and was not installed. The submission checklist is `docs/app-store-submission-checklist.md`.
+Local code now declares the three mandatory compliance webhook topics in `shopify.app.toml` and returns HTTP 200 for those topics when the shop is already gone. The review-link form hides photo and video upload until object storage is configured, and a posted file is rejected before a review is saved. `deploy/nginx/productreviews.it3.in.conf` is prepared and was not installed. The submission checklist is `docs/app-store-submission-checklist.md`.
 
 This build was not deployed and was not submitted. The development store still needs an authorized release before the single-widget extension, encrypted cursors, and compliance webhook subscription can be verified there.
 
@@ -360,7 +360,7 @@ Store: `sftp-7qtjiorq.myshopify.com`. Live theme: `test-data` (`158207312037`).
 
 `shopify app deploy --allow-updates` released app version `product-reviews-5` to the Product Reviews app. That release did not SSH to production, did not change the production host, and did not change `application_url` in `shopify.app.toml`. The Shopify CLI is authenticated as the app owner. The development store is still marked “Not yet configured” inside `shopify app info`, but theme commands can read this store.
 
-A direct `GET https://shopifyreview.it3.in/api/public/ratings?productIds=1` returned HTTP 404 from nginx. The ratings route exists only in the local app. The app proxy still targets that host, so the released extension cannot load rating numbers until that web app is deployed. Production deployment was not performed.
+A direct `GET https://productreviews.it3.in/api/public/ratings?productIds=1` returned HTTP 404 from nginx. The ratings route exists only in the local app. The app proxy still targets that host, so the released extension cannot load rating numbers until that web app is deployed. Production deployment was not performed.
 
 The storefront redirects to `/password`. This browser session does not have the store password. The theme editor URL redirected to Shopify login, and the page reported that captcha could not load. No product, collection, search, or settings screen was rendered.
 
@@ -420,9 +420,112 @@ Extension version `product-reviews-6` was released to the Product Reviews app: h
 | GDPR | NOT TESTED | Compliance topics are in `shopify.app.toml` and were included in the `product-reviews-6` release. A live webhook was not sent. |
 | Billing | PARTIAL | The app does not create a charge during tests. Production env has no `SHOPIFY_PARTNER_ORG_ID` and no `SHOPIFY_APP_ID`. Partner pricing handles were not created. |
 | Security | PASS | Unsigned ratings with a valid shop returned 401 `INVALID_SIGNATURE`. An invalid shop returned 400 `INVALID_SHOP`. A request without a shop returned 400 `MISSING_SHOP`. None of those bodies contained a credential. |
-| Production health | PASS | `https://shopifyreview.it3.in/` returned 200. `/health` returned `{"success":true,"data":{"status":"ok","database":"ok"}}`. `/api/public/ratings` is served by the app and is no longer HTTP 404. |
+| Production health | PASS | `https://productreviews.it3.in/` returned 200. `/health` returned `{"success":true,"data":{"status":"ok","database":"ok"}}`. `/api/public/ratings` is served by the app and is no longer HTTP 404. |
 | Existing-site safety | PASS | After the release, these returned HTTP 200 and their containers kept their earlier start times: artifyanni.com, crmassistant.it3.in, instagramfeed.it3.in, reports.it3.in, sftpshopify.it3.in. |
 | Partner Dashboard | PARTIAL | App URL, OAuth callback, scopes, App Proxy, and compliance topics are in the released app version. Protected customer data approval, Free and Pro pricing, support email, privacy policy, and terms were not confirmed in the dashboard. |
 | App Store listing | NOT TESTED | Icon, screenshots, descriptions, demo video, support URL, privacy policy, terms, and review credentials are not in the repository and were not submitted. |
 
 A pending storefront review titled `Readiness check` from `Store Test` was submitted on The Collection Snowboard: Liquid. It is not public. Approve or delete it from the merchant Reviews screen. The installed Product rating block still has its saved star size of 16px; the block default for a newly added block is 20px. The theme editor was not used to change that saved value.
+
+## Final Shopify App Store Readiness
+
+Date: 2026-10-01
+
+This pass did not deploy, did not submit the app, and did not send a new email. Storefront checks used the already installed development store `sftp-7qtjiorq.myshopify.com`. Shopify Admin was not logged in, so merchant screens were not clicked.
+
+### 1. Features verified
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| OAuth / install | NOT TESTED | Embedded admin was not opened. Unauthenticated `GET /app` returned HTTP 410. |
+| Uninstall | NOT TESTED | No uninstall was performed. `app/uninstalled` is declared in `shopify.app.toml` and handled in `app/routes/webhooks.ts`. |
+| App Proxy | PARTIAL | The storefront loaded reviews through `/apps/shopify-review/reviews`. A new unsigned-signature probe was not repeated in this pass. |
+| Product page rating | PASS | On The Collection Snowboard: Liquid, the title block exposed `Rated 3.8 out of 5 stars from 4 reviews`. |
+| Review section | PASS | Same page showed 3.8 / 5, Based on 4 reviews, histogram counts 5:1, 4:2, 3:0, 2:1, 1:0, sort, and Load more. `(5+8+2)/4 = 3.75`, shown as 3.8. The longest bar was the count of 2. |
+| Write a review button | PARTIAL | The button was absent on that product page. Code and the shop setting default keep it off unless `showWriteReviewButton` is true. The ON state was not toggled in the browser. |
+| View all reviews | PASS | The button opened `https://sftp-7qtjiorq.myshopify.com/apps/shopify-review/reviews`. The page showed 10 real approved reviews, average 3.6, distribution 5:3, 4:3, 3:2, 2:1, 1:1, product links, dates, and verified badges only on some reviews. |
+| View all button position | PARTIAL | On the live theme the button sits on the right of the summary card, not beside the heading. Source now places it on the heading row. That source change was not deployed. |
+| Site-wide Reviews tab | PASS | A Reviews control was present on the product page, the all-reviews page, and `/collections/all`. |
+| Collection / search / homepage card ratings | FAIL | `/collections/all` listed 12 products and no rating control. Search and the homepage were not reopened. Related products on the product page said “Be the first to review.” |
+| Footer form | PASS | The product page, all-reviews page, and collection page footers had no review form. |
+| Mail-link review approval | PASS | Reviews submitted today for order #1003 products are public: Ayumu Hirano on The Collection Snowboard: Oxygen and Selling Plans Ski Wax are marked Verified buyer. The unfulfilled snowboard review from the same name is public and not marked verified. `submitReview` sets `status: 'APPROVED'` only for the mail-link path. The storefront form path still writes `PENDING`. |
+| Automatic order emails | FAIL | Shopify Admin API still rejects order reads with `This app is not approved to access the Order object.` No new email was sent in this pass. An earlier EmailDelivery for order #1003 to the masked test recipient was `ACCEPTED`; that did not use the Order API. |
+| Admin dashboard, moderation, pagination, manual review | NOT TESTED | Shopify Admin login was not available. Unit tests cover page size, filters, and admin review parsing. No fake metric literals were found in `app/components/admin/dashboard-view.tsx`; the screen itself was not opened. |
+| SMTP password exposure | NOT TESTED | The platform SMTP screen was not opened in this pass. |
+| Billing | NOT TESTED | No charge was created. Partner pricing handles were not confirmed. |
+| GDPR live delivery | NOT TESTED | A POST to `/webhooks` without HMAC returned HTTP 401. Compliance topics are in `shopify.app.toml`. A signed compliance webhook was not delivered. |
+| Theme extension build | PASS | `shopify app build` completed with theme check and no reported errors. `review-widgets.js` is 8,375 bytes. `product-rating.js` was not edited and is 9,947 bytes. `all-reviews-tab.js` is 3,907 bytes. |
+
+### 2. Tests executed
+
+All of these exited 0 on 2026-10-01:
+
+- `npm test`: 29 files, 119 tests
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- `npx prisma validate`
+- `npx prisma generate`
+- `npx prisma migrate status` against local `shopify_review_dev`: 13 migrations, schema up to date
+- `npx shopify app build`
+
+### 3. Browser tests
+
+- Product page loaded. Rating, histogram, three review cards, Load more, sort, View all reviews, and the side Reviews tab were visible. Write a review was not in the accessibility tree.
+- View all reviews opened the shop-wide page and rendered 10 database reviews. Distribution counts match the 3.6 average.
+- Collection page loaded 12 products, the Reviews tab, and no card ratings.
+- Invalid `/review/not-a-real-token` returned HTTP 200 and the text “This review link is not available.” No stack trace was in the visible message.
+- `https://productreviews.it3.in/health` returned HTTP 200. `/admin/login` returned HTTP 200.
+
+### 4. Email tests
+
+No email was sent in this pass. The earlier order #1003 send is not repeated here as a new inbox check. Subject, From, Reply-To, images, and the received HTML were not opened in a mailbox during this pass.
+
+### 5. Security tests
+
+- Unauthenticated `/app`: HTTP 410
+- Webhook POST without HMAC: HTTP 401
+- Invalid review token: safe message, HTTP 200
+- XSS, CSRF, cross-shop mutation, and SMTP API abuse were not re-executed in the browser. Existing unit tests for signatures, CSRF, SMTP error redaction, and template escaping passed.
+
+### 6. Database / migration status
+
+Local development database is at migration `0013_review_request_test_mode`. Production was not migrated or deployed in this pass. This pass did not query production for new rows.
+
+### 7. Shopify configuration
+
+`shopify.app.toml` still has application URL `https://productreviews.it3.in`, redirect `https://productreviews.it3.in/auth/callback`, scopes `read_products,read_orders,read_customers`, App Proxy prefix `apps` and subpath `shopify-review`, API version `2026-01`, `app/uninstalled`, compliance topics, and `orders/fulfilled` plus `fulfillments/create`. There is no `read_fulfillments` scope.
+
+### 8. Partner Dashboard requirements
+
+- Protected customer data approval for the Order object. Until Shopify grants it, the app cannot read order #1003, including line items, through the Admin API.
+- Fulfillment webhook topics in the repo were previously rejected on deploy for that same protected-data restriction. They are not a live subscription until a deploy Shopify accepts.
+- App Pricing handles, if billing is part of the listing, were not confirmed.
+- Review staff credentials for the development store must be entered in the listing. They are not in this repository.
+
+### 9. Listing requirements
+
+NOT TESTED. Icon, screenshots, feature list, demo video, support URL, and emergency contact are not in the repository and were not uploaded.
+
+### 10. Legal requirements
+
+NOT TESTED. Privacy policy URL, terms, and data-retention answers were not confirmed in the Partner listing. The app stores review text, reviewer display names, encrypted customer email when Shopify provides it, and encrypted SMTP configuration. Those answers must be written by the business. They were not invented here.
+
+### 11. Remaining blockers
+
+1. Shopify has not approved this app to access the Order object.
+2. Automatic fulfillment emails cannot be proven end to end until that approval exists and the fulfillment webhook version is accepted.
+3. Collection, search, and homepage product-card ratings are not showing on the live theme.
+4. Merchant admin flows were not clicked: pagination, filters, approve/reject, and manual Add Review.
+5. Listing, privacy policy, terms, support URL, and review credentials are missing from the Partner submission.
+6. The heading-row placement of View all reviews is only in the local extension source. The live theme still shows the button on the summary card.
+
+### 12. Exact steps still required before Submit for review
+
+1. In the Partner Dashboard, request protected customer data access for orders and customers. Do not work around a denial.
+2. After approval, deploy the app version only when asked, including compliance webhooks. Add `read_fulfillments` only if Shopify requires it for the fulfillment topics, then confirm those subscriptions are accepted.
+3. In the theme editor, enable product-card ratings on collection and search if that placement is required for the listing, and confirm one review section per product.
+4. Sign in to the development store and click Dashboard, Reviews pagination, filters, Add Review, Settings, and Review Requests.
+5. Add the privacy policy, terms, support email, support URL, icon, screenshots, description, and a staff test account.
+6. Create the App Pricing plans the listing will name.
+7. Only then use Submit for review. This pass did not click it.

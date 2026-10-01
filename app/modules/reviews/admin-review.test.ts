@@ -79,9 +79,9 @@ describe('admin add review', () => {
     const page = readFileSync('app/routes/app.reviews.tsx', 'utf8');
     expect(page.indexOf('authenticate.admin')).toBeLessThan(page.indexOf('intent') );
     expect(page).not.toContain('form.get(\'shopId\')');
-    const foreign = new Request('https://shopifyreview.it3.in/app/reviews', {headers: {origin: 'https://evil.example'}});
+    const foreign = new Request('https://productreviews.it3.in/app/reviews', {headers: {origin: 'https://evil.example'}});
     expect(adminReviewRequestAllowed(foreign)).toBe(false);
-    expect(adminReviewRequestAllowed(new Request('https://shopifyreview.it3.in/app/reviews'))).toBe(true);
+    expect(adminReviewRequestAllowed(new Request('https://productreviews.it3.in/app/reviews'))).toBe(true);
   });
 
   it('stores an admin review as not verified and records the admin source', () => {

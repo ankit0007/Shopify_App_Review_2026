@@ -107,10 +107,27 @@
   padding: 8px 0 4px;
 }
 
+.shopify-reviews .sr__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.shopify-reviews .sr__heading .sr-btn {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .shopify-reviews .sr__title {
   margin: 0 0 18px;
   font-size: clamp(22px, 2.4vw, 28px);
   letter-spacing: -0.02em;
+}
+
+.shopify-reviews .sr__heading .sr__title {
+  margin: 0;
 }
 
 .shopify-reviews .sr__top {

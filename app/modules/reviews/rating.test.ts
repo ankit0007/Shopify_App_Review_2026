@@ -15,7 +15,7 @@ import {
 const secret = 'rating-secret';
 
 function signed(query: string) {
-  const url = new URL(`https://shopifyreview.it3.in/api/public/ratings?${query}`);
+  const url = new URL(`https://productreviews.it3.in/api/public/ratings?${query}`);
   return signRatingUrl(url, secret);
 }
 
@@ -100,9 +100,9 @@ describe('product rating calculation', () => {
 
 describe('public rating request validation', () => {
   it('rejects a missing shop, an invalid shop, and a missing signature', () => {
-    expect(validateRatingRequest(new URL('https://shopifyreview.it3.in/api/public/ratings?productIds=1'), secret).ok).toBe(false);
+    expect(validateRatingRequest(new URL('https://productreviews.it3.in/api/public/ratings?productIds=1'), secret).ok).toBe(false);
     expect(validateRatingRequest(signed('shop=not-a-shop&productIds=1'), secret).code).toBe('INVALID_SHOP');
-    const unsigned = new URL('https://shopifyreview.it3.in/api/public/ratings?shop=example.myshopify.com&productIds=1');
+    const unsigned = new URL('https://productreviews.it3.in/api/public/ratings?shop=example.myshopify.com&productIds=1');
     expect(validateRatingRequest(unsigned, secret).code).toBe('INVALID_SIGNATURE');
   });
 
@@ -114,7 +114,7 @@ describe('public rating request validation', () => {
     expect(parseProductIds('<script>alert(1)</script>').code).toBe('MALFORMED_PRODUCT_ID');
     expect(parseProductIds('gid://shopify/Product/nope').code).toBe('MALFORMED_PRODUCT_ID');
     expect(parseProductIds(Array.from({length: 51}, (_, index) => String(index + 1)).join(',')).code).toBe('TOO_MANY_PRODUCTS');
-    expect(validateRatingRequest(new URL(`https://shopifyreview.it3.in/api/public/ratings?${'a'.repeat(4001)}`), secret).code).toBe('QUERY_TOO_LARGE');
+    expect(validateRatingRequest(new URL(`https://productreviews.it3.in/api/public/ratings?${'a'.repeat(4001)}`), secret).code).toBe('QUERY_TOO_LARGE');
   });
 
   it('accepts a signed batch of numeric ids and product gids', () => {

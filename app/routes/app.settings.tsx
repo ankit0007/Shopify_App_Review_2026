@@ -4,8 +4,7 @@ import {AdminShell} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {isSameOrigin} from '../lib/csrf.server';
-import {loadEnabledSmtp, sendSmtpTestEmail} from '../modules/email/delivery.server';
-import {DEFAULT_TEST_RECIPIENT} from '../modules/reviews/request-test';
+import {loadEnabledSmtp} from '../modules/email/delivery.server';
 import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewEmailTrigger, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
 
 export async function loader({request}: {request: Request}) {
@@ -32,10 +31,6 @@ export async function action({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   if (!isSameOrigin(request)) return {error: 'Request could not be verified.'};
   const formData = await request.formData();
-  if (formData.get('intent') === 'smtp-test') {
-    const result = await sendSmtpTestEmail(String(formData.get('recipient') ?? ''));
-    return result.ok ? {smtpTest: true} : {error: result.error};
-  }
   const primaryColor = String(formData.get('primaryColor') ?? '').trim();
   if (!/^#[0-9a-f]{6}$/i.test(primaryColor)) {
     return {error: 'Primary color must be a six-digit hex color.'};
@@ -104,7 +99,6 @@ function SettingsForm({
   const [requestDelayDays, setRequestDelayDays] = useState(settings.requestDelayDays);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   return (
-    <>
     <Form method="post" ref={formRef} className="grid max-w-3xl gap-4">
       <input type="hidden" name="showWriteReviewButton" value={showWriteReviewButton ? 'true' : 'false'} />
       <input type="hidden" name="showAllReviewsTab" value={showAllReviewsTab ? 'true' : 'false'} />
@@ -117,7 +111,6 @@ function SettingsForm({
       {!settings.emailReady ? (
         <p className="rounded-lg bg-[#fff5ea] px-3 py-2 text-sm text-[#8a6116]" role="alert">SMTP is not configured. Configure SMTP before sending review-request emails.</p>
       ) : null}
-      {result?.smtpTest ? <p className="rounded-lg bg-[#e3f1df] px-3 py-2 text-sm text-[#0c5132]" role="status">Test email sent.</p> : null}
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
         <h2 className="text-base font-semibold">Storefront review button</h2>
         <p className="mt-1 text-sm text-[#6d7175]">Customers can still submit reviews from a review-request email when this button is hidden.</p>
@@ -167,16 +160,5 @@ function SettingsForm({
         {saving ? 'Saving…' : 'Save settings'}
       </button>
     </Form>
-    <Form method="post" className="mt-4 grid max-w-3xl gap-3 rounded-xl border border-[#e3e3e3] bg-white p-4">
-      <input type="hidden" name="intent" value="smtp-test" />
-      <h2 className="text-base font-semibold">SMTP test</h2>
-      <p className="text-sm text-[#6d7175]">Sends one plain message through the configured SMTP connection. It does not use a customer email.</p>
-      <label className="grid gap-1 text-sm font-semibold">
-        Test recipient
-        <input name="recipient" type="email" defaultValue={DEFAULT_TEST_RECIPIENT} className="min-h-10 rounded-lg border border-[#c9cccf] px-3 font-normal" autoComplete="off" />
-      </label>
-      <button type="submit" className="min-h-10 w-fit rounded-lg border border-[#c9cccf] bg-white px-4 text-sm font-semibold" disabled={saving}>Send test email</button>
-    </Form>
-    </>
   );
 }
