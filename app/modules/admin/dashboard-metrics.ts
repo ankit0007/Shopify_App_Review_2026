@@ -27,12 +27,14 @@ export function summarizeRequests(counts: Record<string, number>) {
   const sent = value('SENT') + value('OPENED') + value('CLICKED') + value('SUBMITTED');
   const pending = value('PENDING') + value('SCHEDULED') + value('SENDING');
   const failed = value('FAILED');
+  const blocked = value('BLOCKED');
   const submitted = value('SUBMITTED');
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   return {
     sent,
     pending,
     failed,
+    blocked,
     submitted,
     conversion: sent > 0 ? submitted / sent : null,
     hasData: total > 0,

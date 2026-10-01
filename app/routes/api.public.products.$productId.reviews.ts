@@ -48,7 +48,7 @@ export async function loader({params, request}: {params: {productId?: string}; r
     select: {id: true},
   });
   const empty = {reviews: [], nextCursor: null, averageRating: null, totalReviews: 0, distribution: emptyDistribution(), showWriteReviewButton};
-  if (!product) return ok(empty, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
+  if (!product) return ok(empty, {headers: {'Cache-Control': 'private, no-store'}});
 
   const orderBy = listQuery.sort === 'highest'
     ? [{rating: 'desc' as const}, {submittedAt: 'desc' as const}, {id: 'desc' as const}]
@@ -94,7 +94,7 @@ export async function loader({params, request}: {params: {productId?: string}; r
     totalReviews: summary.reviewCount,
     distribution,
     showWriteReviewButton,
-  }, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
+  }, {headers: {'Cache-Control': 'private, no-store'}});
 }
 
 export async function action({params, request}: {params: {productId?: string}; request: Request}) {

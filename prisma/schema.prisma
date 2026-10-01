@@ -19,6 +19,7 @@ enum ReviewRequestStatus {
   EXPIRED
   CANCELLED
   FAILED
+  BLOCKED
 }
 
 enum ReviewStatus {
@@ -114,6 +115,7 @@ model ShopSettings {
   automaticRequests     Boolean  @default(false)
   reviewRequestTrigger  String   @default("FULFILLMENT")
   showWriteReviewButton Boolean  @default(false)
+  showAllReviewsTab     Boolean  @default(true)
   requestDelayDays      Int      @default(2)
   reminderDelayDays     Int      @default(3)
   maxReminders          Int      @default(1)
@@ -200,6 +202,7 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity          Int @default(1)
   fulfilledQuantity Int @default(0)
+  variantTitle      String?
 
   @@unique([orderId, productId])
 }
@@ -222,6 +225,8 @@ model ReviewRequest {
   expiresAt     DateTime?
   reminderCount Int                 @default(0)
   lastError     String?
+  isTest        Boolean             @default(false)
+  testRecipientEncrypted String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   reviews       Review[]

@@ -1,6 +1,7 @@
 import {db} from '../../db.server';
 import {reviewSubmissionSchema, type ReviewSubmission} from './review.schema';
 import {verifyPurchase} from './verification.service.server';
+import {invalidateRatingCache} from './rating-cache.server';
 import {PlanService} from '../plans/plan.service.server';
 
 export async function submitReview(input: {
@@ -49,6 +50,7 @@ export async function submitReview(input: {
         title: data.title,
         body: data.body,
         displayName: data.displayName,
+        status: 'APPROVED',
         verifiedPurchase,
         verificationReason: verifiedPurchase ? 'Matched eligible Shopify order item for this shop and customer' : 'No matching eligible Shopify order item',
       },
@@ -72,5 +74,10 @@ export async function submitReview(input: {
     return review;
   });
   await plan.increment(input.shopId, 'reviews');
+  const [shop, product] = await Promise.all([
+    db.shop.findUnique({where: {id: input.shopId}, select: {shopDomain: true}}),
+    db.product.findUnique({where: {id: input.productId}, select: {shopifyProductId: true}}),
+  ]);
+  if (shop && product) invalidateRatingCache(shop.shopDomain, product.shopifyProductId);
   return review;
 }

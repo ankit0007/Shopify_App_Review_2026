@@ -72,8 +72,12 @@ export async function loader({request}: {request: Request}) {
   if (cursorValue && (!cursor || !cursorMatchesQuery(cursor, listQuery))) return fail('INVALID_CURSOR', 'Cursor is invalid', 400);
 
   try {
-    const shopRow = await db.shop.findUnique({where: {shopDomain: shop.shop}, select: {id: true}});
-    if (!shopRow) return ok(emptyPayload(), {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
+    const shopRow = await db.shop.findUnique({
+      where: {shopDomain: shop.shop},
+      select: {id: true, settings: {select: {showAllReviewsTab: true}}},
+    });
+    const showAllReviewsTab = shopRow?.settings?.showAllReviewsTab !== false;
+    if (!shopRow) return ok({...emptyPayload(), showAllReviewsTab}, {headers: {'Cache-Control': 'private, no-store'}});
     const approved = globalApprovedWhere(shopRow.id);
     const orderBy = listQuery.sort === 'highest'
       ? [{rating: 'desc' as const}, {submittedAt: 'desc' as const}, {id: 'desc' as const}]
@@ -94,7 +98,7 @@ export async function loader({request}: {request: Request}) {
           displayName: true,
           verifiedPurchase: true,
           submittedAt: true,
-          product: {select: {id: true, title: true, handle: true, shopifyProductId: true}},
+          product: {select: {id: true, title: true, handle: true, shopifyProductId: true, imageUrl: true}},
         },
       }),
       db.review.groupBy({by: ['rating'], where: approved, _count: {_all: true}}),
@@ -106,16 +110,21 @@ export async function loader({request}: {request: Request}) {
     const summary = summarizeRatingCounts([1, 2, 3, 4, 5].map((rating) => ({rating, count: distribution[String(rating) as '1']})));
     const last = page.items.at(-1);
     return ok({
-      reviews: page.items.map(({id: _id, product, submittedAt, ...review}) => ({
-        ...review,
-        submittedAt: submittedAt.toISOString(),
-        product: publicProductLink({title: product.title, handle: handles.get(product.shopifyProductId) ?? product.handle}),
-      })),
+      reviews: page.items.map(({id: _id, product, submittedAt, ...review}) => {
+        const link = publicProductLink({title: product.title, handle: handles.get(product.shopifyProductId) ?? product.handle});
+        const imageUrl = product.imageUrl?.startsWith('https://') ? product.imageUrl : null;
+        return {
+          ...review,
+          submittedAt: submittedAt.toISOString(),
+          product: link ? {...link, imageUrl} : null,
+        };
+      }),
+      showAllReviewsTab,
       nextCursor: page.hasMore && last ? encodeOpaqueCursor(cursorPayload(listQuery.sort, listQuery.rating, last.id), config.SHOPIFY_API_SECRET) : null,
       averageRating: summary.averageRating,
       totalReviews: summary.reviewCount,
       distribution,
-    }, {headers: {'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'}});
+    }, {headers: {'Cache-Control': 'private, no-store'}});
   } catch {
     return fail('REVIEWS_UNAVAILABLE', 'Reviews could not be loaded', 500);
   }

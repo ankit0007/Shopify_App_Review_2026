@@ -24,6 +24,14 @@ describe('email templates', () => {
     expect(cards).toContain('src="https://cdn.shopify.com/board.jpg"');
     expect(cards).toContain('width="72"');
     expect(productCardsHtml([{ title: 'Board', imageUrl: 'javascript:alert(1)' }])).not.toContain('javascript:');
+    const both = productCardsHtml([
+      { title: 'Product A', variantTitle: 'Red', imageUrl: 'https://cdn.shopify.com/a.jpg', reviewUrl: 'https://shopifyreview.it3.in/review-request/a#product-1' },
+      { title: 'Product B', imageUrl: 'https://cdn.shopify.com/b.jpg', reviewUrl: 'https://shopifyreview.it3.in/review-request/b#product-2' },
+    ]);
+    expect(both.match(/Write a review/g)).toHaveLength(2);
+    expect(both).toContain('Red');
+    expect(both).toContain('#product-1');
+    expect(both).toContain('#product-2');
     expect(renderTemplate(reviewRequestHtmlTemplate, { customerName: 'Ankit', orderNumber: '#1003', productsHtml: cards, reviewUrl: 'https://shopifyreview.it3.in/review-request/token', unsubscribeUrl: 'https://shopifyreview.it3.in/unsubscribe/token' }, 'html')).toContain('ARTIFYANNI');
     expect(renderTemplate(reviewRequestHtmlTemplate, { productsHtml: cards }, 'html')).toContain(cards);
     expect(displayOrderNumber('1003')).toBe('#1003');

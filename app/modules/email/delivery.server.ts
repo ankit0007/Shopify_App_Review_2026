@@ -7,6 +7,7 @@ import { NodemailerSmtpTransport, SMTPEmailProvider, type SmtpConnection } from 
 import { renderTemplate, templateTypeForReminder, productCardsHtml, reviewRequestHtmlTemplate, reviewRequestTextTemplate } from './template';
 import { createEmailService, type EmailService } from './email.service.server';
 import { blockedByAcceptedDelivery } from './delivery-state';
+import { parseTestRecipient } from '../reviews/request-test';
 import { decideRetry } from './retry';
 
 export function maskEmail(email: string) {
@@ -41,6 +42,25 @@ export async function loadEnabledSmtp(): Promise<SmtpConnection | null> {
   }
 }
 
+export async function sendSmtpTestEmail(recipient: string) {
+  const email = parseTestRecipient(recipient);
+  if (!email) return {ok: false as const, error: 'Enter a valid email address.'};
+  const smtp = await loadEnabledSmtp();
+  if (!smtp) return {ok: false as const, error: 'SMTP is not configured. Configure SMTP before sending review-request emails.'};
+  try {
+    const provider = new SMTPEmailProvider(smtp, new NodemailerSmtpTransport());
+    await provider.send({
+      to: email,
+      subject: 'Review request email test',
+      html: '<p>SMTP is configured for review-request emails.</p>',
+      text: 'SMTP is configured for review-request emails.',
+    });
+    return {ok: true as const};
+  } catch (error) {
+    return {ok: false as const, error: sanitizeSmtpError(error, [smtp.password, smtp.username])};
+  }
+}
+
 export async function createDeliveryEmailService() {
   const smtp = await loadEnabledSmtp();
   if (!smtp) return createEmailService();
@@ -57,17 +77,18 @@ export async function deliverReviewEmail(input: {
   productName: string;
   orderNumber?: string;
   customerName?: string;
-  products?: Array<{ title: string; imageUrl?: string | null }>;
+  products?: Array<{ title: string; variantTitle?: string | null; imageUrl?: string | null; reviewUrl?: string | null }>;
   reviewUrl: string;
   unsubscribeUrl: string;
   secrets: string[];
+  force?: boolean;
 }) {
   const templateType = templateTypeForReminder(input.reminderCount);
   const alreadyAccepted = await db.emailDelivery.findFirst({
     where: { reviewRequestId: input.reviewRequestId, templateType, status: 'ACCEPTED' },
     select: { id: true },
   });
-  if (blockedByAcceptedDelivery(alreadyAccepted ? 'ACCEPTED' : null)) return { status: 'ACCEPTED' as const, providerId: null };
+  if (!input.force && blockedByAcceptedDelivery(alreadyAccepted ? 'ACCEPTED' : null)) return { status: 'ACCEPTED' as const, providerId: null };
   const productsHtml = productCardsHtml(input.products ?? []);
   const rendered = await renderStoredTemplate(templateType, {
     shopName: input.shopDomain,

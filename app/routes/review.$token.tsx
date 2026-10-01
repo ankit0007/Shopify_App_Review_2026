@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFetcher, useLoaderData } from 'react-router';
 import { reviewLinkState, sameOrderRequest } from '../modules/reviews/request-access';
+import { productReviewDone } from '../modules/reviews/request-test';
 import { hashToken } from '../lib/tokens.server';
 import { db } from '../db.server';
 import { consumeRateLimit, requestClientKey } from '../lib/rate-limit.server';
@@ -157,10 +158,10 @@ function ProductReview({ product, customerName }: { product: { id: string; title
   const fetcher = useFetcher<typeof action>();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
-  const done = product.submitted || fetcher.data?.submitted === true;
+  const done = productReviewDone(product, fetcher.data);
   const shown = hover || rating;
   return (
-    <article className="request-card">
+    <article className="request-card" id={`product-${product.id}`}>
       <div className="request-card__product">
         {product.imageUrl ? <img src={product.imageUrl} alt="" width="72" height="72" /> : <span className="request-card__image" aria-hidden="true" />}
         <h2>{product.title}</h2>

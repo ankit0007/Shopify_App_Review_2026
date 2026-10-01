@@ -24,6 +24,7 @@ describe('shop review settings and fulfillment requests', () => {
   it('defaults a new shop to hidden write button and no automatic emails', () => {
     const schema = readFileSync('prisma/schema.prisma', 'utf8');
     expect(schema).toMatch(/showWriteReviewButton\s+Boolean\s+@default\(false\)/);
+    expect(schema).toMatch(/showAllReviewsTab\s+Boolean\s+@default\(true\)/);
     expect(schema).toMatch(/automaticRequests\s+Boolean\s+@default\(false\)/);
     expect(schema).toMatch(/requestDelayDays\s+Int\s+@default\(2\)/);
     expect(schema).toMatch(/reviewRequestTrigger\s+String\s+@default\("FULFILLMENT"\)/);

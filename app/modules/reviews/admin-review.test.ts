@@ -139,6 +139,8 @@ describe('admin add review', () => {
     expect(ratings).toContain("status: 'APPROVED'");
     expect(submission).toContain('reviewSubmissionSchema.parse');
     expect(submission).toContain('verifyPurchase');
+    expect(submission).toContain("status: 'APPROVED'");
+    expect(readFileSync('app/routes/api.public.products.$productId.reviews.ts', 'utf8')).toContain("status: 'PENDING'");
     expect(readFileSync('app/routes.ts', 'utf8')).toContain("route('api/public/ratings'");
   });
 });

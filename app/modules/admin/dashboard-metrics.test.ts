@@ -33,10 +33,11 @@ describe('admin dashboard metrics', () => {
 
   it('calculates review-request conversion only when requests were sent', () => {
     expect(summarizeRequests({})).toMatchObject({hasData: false, conversion: null, sent: 0});
-    expect(summarizeRequests({SENT: 4, SUBMITTED: 1, FAILED: 2, PENDING: 3})).toEqual({
+    expect(summarizeRequests({SENT: 4, SUBMITTED: 1, FAILED: 2, PENDING: 3, BLOCKED: 1})).toEqual({
       sent: 5,
       pending: 3,
       failed: 2,
+      blocked: 1,
       submitted: 1,
       conversion: 0.2,
       hasData: true,

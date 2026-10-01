@@ -4,7 +4,8 @@ import {AdminShell} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {isSameOrigin} from '../lib/csrf.server';
-import {loadEnabledSmtp} from '../modules/email/delivery.server';
+import {loadEnabledSmtp, sendSmtpTestEmail} from '../modules/email/delivery.server';
+import {DEFAULT_TEST_RECIPIENT} from '../modules/reviews/request-test';
 import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewEmailTrigger, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
 
 export async function loader({request}: {request: Request}) {
@@ -19,6 +20,7 @@ export async function loader({request}: {request: Request}) {
   return {
     primaryColor: shop?.settings?.primaryColor ?? '#2563eb',
     showWriteReviewButton: shop?.settings?.showWriteReviewButton === true,
+    showAllReviewsTab: shop?.settings?.showAllReviewsTab !== false,
     automaticRequests: shop?.settings?.automaticRequests === true,
     reviewRequestTrigger: reviewEmailTrigger(shop?.settings?.reviewRequestTrigger),
     requestDelayDays: String(normalizeReviewDelayDays(shop?.settings?.requestDelayDays)),
@@ -30,6 +32,10 @@ export async function action({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   if (!isSameOrigin(request)) return {error: 'Request could not be verified.'};
   const formData = await request.formData();
+  if (formData.get('intent') === 'smtp-test') {
+    const result = await sendSmtpTestEmail(String(formData.get('recipient') ?? ''));
+    return result.ok ? {smtpTest: true} : {error: result.error};
+  }
   const primaryColor = String(formData.get('primaryColor') ?? '').trim();
   if (!/^#[0-9a-f]{6}$/i.test(primaryColor)) {
     return {error: 'Primary color must be a six-digit hex color.'};
@@ -47,6 +53,7 @@ export async function action({request}: {request: Request}) {
     update: {
       primaryColor,
       showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
+      showAllReviewsTab: formData.get('showAllReviewsTab') === 'true',
       automaticRequests: formData.get('automaticRequests') === 'true',
       reviewRequestTrigger,
       requestDelayDays,
@@ -55,6 +62,7 @@ export async function action({request}: {request: Request}) {
       shopId: shop.id,
       primaryColor,
       showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
+      showAllReviewsTab: formData.get('showAllReviewsTab') !== 'false',
       automaticRequests: formData.get('automaticRequests') === 'true',
       reviewRequestTrigger,
       requestDelayDays,
@@ -70,7 +78,7 @@ export default function Settings() {
   return (
     <AdminShell title="Settings" subtitle="Control review requests, the storefront button, and appearance.">
       <SettingsForm
-        key={`${settings.showWriteReviewButton}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
+        key={`${settings.showWriteReviewButton}:${settings.showAllReviewsTab}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
         settings={settings}
         result={result}
         saving={navigation.state === 'submitting'}
@@ -90,28 +98,36 @@ function SettingsForm({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [showWriteReviewButton, setShowWriteReviewButton] = useState(settings.showWriteReviewButton);
+  const [showAllReviewsTab, setShowAllReviewsTab] = useState(settings.showAllReviewsTab);
   const [automaticRequests, setAutomaticRequests] = useState(settings.automaticRequests);
   const [reviewRequestTrigger, setReviewRequestTrigger] = useState(settings.reviewRequestTrigger);
   const [requestDelayDays, setRequestDelayDays] = useState(settings.requestDelayDays);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   return (
+    <>
     <Form method="post" ref={formRef} className="grid max-w-3xl gap-4">
       <input type="hidden" name="showWriteReviewButton" value={showWriteReviewButton ? 'true' : 'false'} />
+      <input type="hidden" name="showAllReviewsTab" value={showAllReviewsTab ? 'true' : 'false'} />
       <input type="hidden" name="automaticRequests" value={automaticRequests ? 'true' : 'false'} />
       <input type="hidden" name="reviewRequestTrigger" value={reviewRequestTrigger} />
       <input type="hidden" name="requestDelayDays" value={requestDelayDays} />
       <input type="hidden" name="primaryColor" value={primaryColor} />
       {result?.error ? <p className="rounded-lg bg-[#fee9e8] px-3 py-2 text-sm text-[#8e1f0b]" role="alert">{result.error}</p> : null}
       {result?.saved ? <p className="rounded-lg bg-[#e3f1df] px-3 py-2 text-sm text-[#0c5132]" role="status">Settings saved.</p> : null}
-      {automaticRequests && !settings.emailReady ? (
-        <p className="rounded-lg bg-[#fff5ea] px-3 py-2 text-sm text-[#8a6116]" role="status">Automatic review emails are on, but email delivery is not configured. Requests will be saved as failed until email is set up.</p>
+      {!settings.emailReady ? (
+        <p className="rounded-lg bg-[#fff5ea] px-3 py-2 text-sm text-[#8a6116]" role="alert">SMTP is not configured. Configure SMTP before sending review-request emails.</p>
       ) : null}
+      {result?.smtpTest ? <p className="rounded-lg bg-[#e3f1df] px-3 py-2 text-sm text-[#0c5132]" role="status">Test email sent.</p> : null}
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
         <h2 className="text-base font-semibold">Storefront review button</h2>
         <p className="mt-1 text-sm text-[#6d7175]">Customers can still submit reviews from a review-request email when this button is hidden.</p>
         <label className="mt-3 flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={showWriteReviewButton} onChange={(event) => setShowWriteReviewButton(event.currentTarget.checked)} />
-          <span>Show &quot;Write a review&quot; button. When disabled, the product page does not show a button that opens the review form.</span>
+          <span>Show &quot;Write a review&quot; button. When this is off, the product page does not show a button that opens the review form.</span>
+        </label>
+        <label className="mt-3 flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={showAllReviewsTab} onChange={(event) => setShowAllReviewsTab(event.currentTarget.checked)} />
+          <span>Show the Reviews tab on every page. It opens a popup of all store reviews, with load more. This is on by default.</span>
         </label>
       </section>
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
@@ -151,5 +167,16 @@ function SettingsForm({
         {saving ? 'Saving…' : 'Save settings'}
       </button>
     </Form>
+    <Form method="post" className="mt-4 grid max-w-3xl gap-3 rounded-xl border border-[#e3e3e3] bg-white p-4">
+      <input type="hidden" name="intent" value="smtp-test" />
+      <h2 className="text-base font-semibold">SMTP test</h2>
+      <p className="text-sm text-[#6d7175]">Sends one plain message through the configured SMTP connection. It does not use a customer email.</p>
+      <label className="grid gap-1 text-sm font-semibold">
+        Test recipient
+        <input name="recipient" type="email" defaultValue={DEFAULT_TEST_RECIPIENT} className="min-h-10 rounded-lg border border-[#c9cccf] px-3 font-normal" autoComplete="off" />
+      </label>
+      <button type="submit" className="min-h-10 w-fit rounded-lg border border-[#c9cccf] bg-white px-4 text-sm font-semibold" disabled={saving}>Send test email</button>
+    </Form>
+    </>
   );
 }

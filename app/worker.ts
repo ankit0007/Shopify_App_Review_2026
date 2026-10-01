@@ -4,9 +4,19 @@ import { decryptData } from './lib/encrypted-data.server';
 import { automaticRequestsEnabled, orderIsPaid, reviewEmailTrigger } from './modules/commerce/fulfillment-lines';
 import { attachProductImages } from './modules/commerce/product-images.server';
 import { displayOrderNumber } from './modules/email/template';
+import { resolveReviewRecipient, PROTECTED_CUSTOMER_DATA_REASON } from './modules/reviews/request-test';
 import { syncOrderWebhook, type ShopifyOrderPayload } from './modules/commerce/sync.service.server';
 import { createDeliveryEmailService, deliverReviewEmail, loadEnabledSmtp } from './modules/email/delivery.server';
 import { sanitizeSmtpError } from './modules/email/smtp-config';
+
+function readEncrypted(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    return decryptData(value);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Worker entrypoint. A production deployment should run this process under a
@@ -54,7 +64,11 @@ export async function processDueReviewRequests(now = new Date()) {
     where: {
       status: 'SCHEDULED',
       scheduledAt: { lte: now },
-      shop: { uninstalledAt: null, settings: { is: { automaticRequests: true } } },
+      shop: { uninstalledAt: null },
+      OR: [
+        { isTest: true },
+        { shop: { settings: { is: { automaticRequests: true } } } },
+      ],
     },
     include: { customer: true, product: true, order: true, shop: { include: { settings: true } } },
     take: 100,
@@ -65,7 +79,7 @@ export async function processDueReviewRequests(now = new Date()) {
       data: { status: 'SENDING' },
     });
     if (claimed.count !== 1) continue;
-    if (!automaticRequestsEnabled(request.shop.settings?.automaticRequests)) {
+    if (!request.isTest && !automaticRequestsEnabled(request.shop.settings?.automaticRequests)) {
       await db.reviewRequest.updateMany({
         where: { id: request.id, status: 'SENDING' },
         data: { status: 'SCHEDULED' },
@@ -95,7 +109,7 @@ export async function processDueReviewRequests(now = new Date()) {
         continue;
       }
     }
-    if (trigger === 'PAID' && !orderIsPaid(request.order?.financialStatus)) {
+    if (!request.isTest && trigger === 'PAID' && !orderIsPaid(request.order?.financialStatus)) {
       await db.reviewRequest.updateMany({
         where: { id: request.id, status: 'SENDING' },
         data: { status: 'PENDING', scheduledAt: null, lastError: 'Waiting until the order is paid' },
@@ -114,10 +128,10 @@ export async function processDueReviewRequests(now = new Date()) {
       request.orderId ? db.orderItem.findMany({
         where: {
           orderId: request.orderId,
-          ...(trigger === 'PAID' ? { quantity: { gt: 0 } } : { fulfilledQuantity: { gt: 0 } }),
+          ...(request.isTest || trigger === 'PAID' ? { quantity: { gt: 0 } } : { fulfilledQuantity: { gt: 0 } }),
           product: { shopId: request.shopId },
         },
-        select: { product: { select: { id: true, title: true, imageUrl: true, shopifyProductId: true } } },
+        select: { variantTitle: true, product: { select: { id: true, title: true, imageUrl: true, shopifyProductId: true } } },
       }) : Promise.resolve([]),
     ]);
     if (!emailProducts.length) {
@@ -135,15 +149,38 @@ export async function processDueReviewRequests(now = new Date()) {
       continue;
     }
     try {
-      if (!request.customer?.emailEncrypted || !request.tokenEncrypted) {
-        throw new Error('Review request has no deliverable recipient or token');
+      if (!request.tokenEncrypted) throw new Error('Review request has no token');
+      const decision = resolveReviewRecipient({
+        mode: request.isTest ? 'test' : 'automatic',
+        customerEmail: readEncrypted(request.customer?.emailEncrypted),
+        testRecipient: readEncrypted(request.testRecipientEncrypted),
+      });
+      if (!decision.ok) {
+        await db.reviewRequest.updateMany({
+          where: { id: request.id, status: 'SENDING' },
+          data: { status: decision.blocked ? 'BLOCKED' : 'FAILED', lastError: decision.blocked ? PROTECTED_CUSTOMER_DATA_REASON : decision.reason },
+        });
+        continue;
       }
-      const recipient = decryptData(request.customer.emailEncrypted);
+      const recipient = decision.recipient;
       const token = decryptData(request.tokenEncrypted);
-      const listed = emailProducts.flatMap((item) => item.product ? [item.product] : []);
-      const products = await attachProductImages(request.shop.shopDomain, listed);
+      const listed = emailProducts.flatMap((item) => item.product ? [{...item.product, variantTitle: item.variantTitle}] : []);
+      const withImages = await attachProductImages(request.shop.shopDomain, listed);
+      const linkRows = request.orderId ? await db.reviewRequest.findMany({
+        where: { shopId: request.shopId, orderId: request.orderId, tokenEncrypted: { not: '' } },
+        select: { tokenEncrypted: true, product: { select: { shopifyProductId: true } } },
+      }) : [];
+      const reviewUrlFor = new Map(linkRows.flatMap((row) => {
+        const productId = row.product?.shopifyProductId;
+        const itemToken = readEncrypted(row.tokenEncrypted);
+        return productId && itemToken ? [[productId, `${config.SHOPIFY_APP_URL}/review-request/${encodeURIComponent(itemToken)}#product-${productId}`] as const] : [];
+      }));
+      const products = withImages.map((product) => ({
+        ...product,
+        reviewUrl: reviewUrlFor.get(product.shopifyProductId) ?? `${config.SHOPIFY_APP_URL}/review-request/${encodeURIComponent(token)}#product-${product.shopifyProductId}`,
+      }));
       const productName = products.map((product) => product.title).join(', ') || request.product.title;
-      const customerName = request.customer.displayName?.trim() || 'there';
+      const customerName = request.customer?.displayName?.trim() || 'Customer';
       const result = await deliverReviewEmail({
         emailService,
         shopId: request.shopId,
@@ -217,6 +254,9 @@ async function processWebhookEvents() {
   }
 }
 
+const workerEntry = process.argv[1]?.replace(/\\/g, '/');
+const startedAsWorker = workerEntry?.endsWith('/app/worker.ts') || workerEntry?.endsWith('/app/worker.js');
+if (startedAsWorker) {
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 60_000);
 let stopping = false;
 process.on('SIGTERM', () => {
@@ -236,3 +276,4 @@ while (!stopping) {
 }
 
 await db.$disconnect();
+}

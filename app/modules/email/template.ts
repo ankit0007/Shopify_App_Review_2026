@@ -32,13 +32,17 @@ export function displayOrderNumber(value: string) {
   return /^\d+$/.test(trimmed) ? `#${trimmed}` : trimmed;
 }
 
-export function productCardsHtml(products: Array<{ title: string; imageUrl?: string | null }>) {
+export function productCardsHtml(products: Array<{ title: string; variantTitle?: string | null; imageUrl?: string | null; reviewUrl?: string | null }>) {
   return products.map((product) => {
     const title = escapeHtml(product.title);
+    const variant = product.variantTitle && product.variantTitle !== 'Default Title' ? `<div style="font-weight:400;font-size:13px;color:#6d7175;">${escapeHtml(product.variantTitle)}</div>` : '';
     const image = product.imageUrl && product.imageUrl.startsWith('https://')
       ? `<img src="${escapeHtml(product.imageUrl)}" alt="${title}" width="72" height="72" style="display:block;width:72px;height:72px;border-radius:8px;object-fit:cover;border:0;" />`
       : '<div style="width:72px;height:72px;border-radius:8px;background:#f1f2f3;"></div>';
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid #e3e3e3;border-radius:12px;"><tr><td width="96" valign="middle" style="padding:12px;">${image}</td><td valign="middle" style="padding:12px 16px 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.4;font-weight:700;color:#202223;">${title}</td></tr></table>`;
+    const button = product.reviewUrl && product.reviewUrl.startsWith('https://')
+      ? `<a href="${escapeHtml(product.reviewUrl)}" style="display:inline-block;margin-top:8px;background:#111111;color:#ffffff;text-decoration:none;font-weight:700;font-size:13px;line-height:1;padding:10px 14px;border-radius:8px;">Write a review</a>`
+      : '';
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid #e3e3e3;border-radius:12px;"><tr><td width="96" valign="top" style="padding:12px;">${image}</td><td valign="middle" style="padding:12px 16px 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.4;font-weight:700;color:#202223;">${title}${variant}${button}</td></tr></table>`;
   }).join('');
 }
 

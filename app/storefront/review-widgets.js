@@ -135,6 +135,7 @@
     write.type = 'button';
     write.setAttribute('aria-expanded', 'false');
     write.hidden = data.showWriteReviewButton !== true || root.dataset.showForm === 'false';
+    if (write.hidden) write.style.setProperty('display', 'none', 'important');
     write.addEventListener('click', () => openForm(root, write));
     const viewAll = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
     viewAll.href = '/apps/shopify-review/reviews';
@@ -239,21 +240,48 @@
     renderList(root, data, false);
   }
 
+  function closeForm(root) {
+    const panel = root.__formPanel;
+    const button = panel?.__opener;
+    if (!panel || panel.hidden) return;
+    panel.hidden = true;
+    document.documentElement.style.overflow = '';
+    button?.setAttribute('aria-expanded', 'false');
+    button?.focus();
+  }
+
   function openForm(root, button) {
-    const panel = root.querySelector('[data-form-panel]');
-    const open = panel.hidden;
-    if (!open) {
-      panel.hidden = true;
-      button?.setAttribute('aria-expanded', 'false');
+    const panel = root.__formPanel || root.querySelector('[data-form-panel]');
+    if (!panel) return;
+    root.__formPanel = panel;
+    if (!panel.hidden) {
+      closeForm(root);
       return;
     }
     const start = () => {
-      panel.hidden = false;
-      button?.setAttribute('aria-expanded', 'true');
-      window.ShopifyReviewForm?.(panel, root, () => {
-        panel.hidden = true;
-        button?.focus();
+      panel.classList.add('shopify-reviews', 'sr-modal');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.setAttribute('aria-label', root.dataset.write || 'Write a review');
+      ['--sr-star', '--sr-star-empty', '--sr-accent', '--sr-radius'].forEach((name) => {
+        const value = root.style.getPropertyValue(name);
+        if (value) panel.style.setProperty(name, value);
       });
+      document.body.append(panel);
+      panel.hidden = false;
+      panel.__opener = button;
+      button?.setAttribute('aria-expanded', 'true');
+      document.documentElement.style.overflow = 'hidden';
+      if (!panel.dataset.bound) {
+        panel.dataset.bound = '1';
+        panel.addEventListener('click', (event) => {
+          if (event.target === panel) closeForm(root);
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && !panel.hidden) closeForm(root);
+        });
+      }
+      window.ShopifyReviewForm?.(panel, root, () => closeForm(root));
     };
     if (window.ShopifyReviewForm) {
       start();

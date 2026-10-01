@@ -182,11 +182,12 @@ export function DashboardView({data, loadedAt}: {data: DashboardData; loadedAt: 
         </Card>
         <div className="grid gap-4">
           <Card title="Review requests">
-            {data.requests?.hasData ? (
+            {data.requests ? (
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 <Metric label="Requests sent" value={data.requests.sent} />
                 <Metric label="Requests pending" value={data.requests.pending} />
                 <Metric label="Requests failed" value={data.requests.failed} />
+                <Metric label="Requests blocked" value={data.requests.blocked} />
                 <Metric label="Reviews generated" value={data.requests.submitted} />
                 <div className="col-span-2">
                   <dt className="text-[#6d7175]">Conversion rate</dt>

@@ -220,7 +220,7 @@ function NavIcon({name}: {name: string}) {
 export function statusTone(status: string): 'success' | 'warning' | 'critical' | 'info' | 'neutral' {
   if (status === 'APPROVED' || status === 'SENT' || status === 'SUBMITTED') return 'success';
   if (status === 'PENDING' || status === 'SCHEDULED' || status === 'SENDING') return 'warning';
-  if (status === 'REJECTED' || status === 'FAILED' || status === 'CANCELLED') return 'critical';
+  if (status === 'REJECTED' || status === 'FAILED' || status === 'CANCELLED' || status === 'BLOCKED') return 'critical';
   if (status === 'OPENED' || status === 'CLICKED') return 'info';
   return 'neutral';
 }

@@ -9,6 +9,7 @@ export function deliveryLabel(status: string, reminderCount = 0): DeliveryLabel 
   if (status === 'SENDING') return 'RETRYING';
   if (status === 'SENT' || status === 'OPENED' || status === 'CLICKED') return 'ACCEPTED';
   if (status === 'FAILED') return 'FAILED';
+  if (status === 'BLOCKED') return 'BLOCKED';
   if (status === 'EXPIRED') return 'EXPIRED';
   if (status === 'CANCELLED') return 'CANCELLED';
   if (status === 'SUBMITTED') return 'SUBMITTED';
