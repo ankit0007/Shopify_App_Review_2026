@@ -97,20 +97,21 @@ export async function action({ request, params }: { request: Request; params: { 
     return { ok: false, message: 'That product is not part of this review link.' };
   }
   if (target.orderId) {
-    const fulfilled = await db.orderItem.findFirst({
-      where: { orderId: target.orderId, productId: target.productId, fulfilledQuantity: { gt: 0 }, product: { shopId: anchor.shopId } },
+    const purchased = await db.orderItem.findFirst({
+      where: { orderId: target.orderId, productId: target.productId, quantity: { gt: 0 }, product: { shopId: anchor.shopId } },
       select: { id: true },
     });
-    if (!fulfilled) return { ok: false, message: 'That product is not part of this review link.' };
+    if (!purchased) return { ok: false, message: 'That product is not part of this review link.' };
   }
   if (target.status === 'SUBMITTED') return { ok: true, productId, submitted: true, message: 'Review submitted. Thank you for sharing your experience.' };
+  const orderName = anchor.customer?.displayName?.replace(/[\r\n]+/g, ' ').trim() || 'Customer';
   const parsed = publicReviewSubmissionSchema.safeParse({
     rating: form.get('rating'),
     title: String(form.get('title') ?? ''),
     body: String(form.get('body') ?? ''),
-    displayName: String(form.get('displayName') ?? ''),
+    displayName: orderName,
   });
-  if (!parsed.success) return { ok: false, productId, message: 'Enter a rating, your name, and a review of at least 10 characters.' };
+  if (!parsed.success) return { ok: false, productId, message: 'Enter a rating and a review of at least 10 characters.' };
   try {
     const review = await submitReview({
       shopId: target.shopId,
@@ -198,8 +199,7 @@ function ProductReview({ product, customerName }: { product: { id: string; title
           <input id={`title-${product.id}`} name="title" maxLength={100} />
           <label htmlFor={`body-${product.id}`}>Your review</label>
           <textarea id={`body-${product.id}`} name="body" required minLength={10} maxLength={5000} rows={4} />
-          <label htmlFor={`name-${product.id}`}>Display name</label>
-          <input id={`name-${product.id}`} name="displayName" required maxLength={60} defaultValue={customerName} />
+          <p className="request-card__name">Reviewing as {customerName || 'Customer'}</p>
           {fetcher.data && 'message' in fetcher.data && !fetcher.data.ok ? <p className="request-page__error" role="alert">{fetcher.data.message}</p> : null}
           <button type="submit" disabled={fetcher.state !== 'idle'}>{fetcher.state === 'idle' ? 'Submit review' : 'Submitting…'}</button>
         </fetcher.Form>
@@ -223,6 +223,7 @@ const PAGE_CSS = `
 .request-card button[role="radio"] svg { width: 22px; height: 22px; display: block; }
 .request-card input, .request-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9cccf; border-radius: 8px; font: inherit; }
 .request-card label span { color: #6d7175; font-weight: 500; }
+.request-card__name { margin: 0; color: #202223; font-weight: 600; }
 .request-card button[type="submit"] { border: 0; border-radius: 8px; background: #111; color: #fff; font-weight: 700; padding: 12px 16px; cursor: pointer; }
 .request-page__note { background: #f1f8f5; border-radius: 12px; padding: 12px; }
 .request-page__error { color: #8e1f0b; margin: 0; }

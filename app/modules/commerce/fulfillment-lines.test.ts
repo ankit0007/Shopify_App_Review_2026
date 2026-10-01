@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {describe, expect, it} from 'vitest';
 import {adminPage, adminRangeLabel, ADMIN_PAGE_SIZE, pageCount} from '../admin/page';
-import {automaticRequestsEnabled, latestFulfillmentMoment, normalizeReviewDelayDays, orderEmailAlreadySent, planOrderReviewEmail, requestStatusForLine, reviewableFulfilledLines, reviewRequestDelayDays, reviewSendAt, showWriteReviewButtonEnabled} from './fulfillment-lines';
+import {automaticRequestsEnabled, latestFulfillmentMoment, linesForReviewEmail, normalizeReviewDelayDays, orderEmailAlreadySent, orderIsPaid, planOrderReviewEmail, requestStatusForLine, reviewableFulfilledLines, reviewEmailTrigger, reviewRequestDelayDays, reviewSendAt, showWriteReviewButtonEnabled} from './fulfillment-lines';
 import {reviewLinkState, sameOrderRequest} from '../reviews/request-access';
 import {distributionAfterReview} from '../reviews/admin-review';
 import {histogramBarPercents} from '../reviews/histogram';
@@ -26,6 +26,14 @@ describe('shop review settings and fulfillment requests', () => {
     expect(schema).toMatch(/showWriteReviewButton\s+Boolean\s+@default\(false\)/);
     expect(schema).toMatch(/automaticRequests\s+Boolean\s+@default\(false\)/);
     expect(schema).toMatch(/requestDelayDays\s+Int\s+@default\(2\)/);
+    expect(schema).toMatch(/reviewRequestTrigger\s+String\s+@default\("FULFILLMENT"\)/);
+    expect(reviewEmailTrigger('PAID')).toBe('PAID');
+    expect(reviewEmailTrigger('anything')).toBe('FULFILLMENT');
+    expect(orderIsPaid('paid')).toBe(true);
+    expect(orderIsPaid('pending')).toBe(false);
+    expect(linesForReviewEmail(order, 'PAID', false)).toEqual([]);
+    expect(linesForReviewEmail(order, 'PAID', true).map((line) => line.title)).toEqual(['Product A', 'Product B', 'Product C']);
+    expect(linesForReviewEmail(order, 'FULFILLMENT', false).map((line) => line.title)).toEqual(['Product A', 'Product B']);
     expect(normalizeReviewDelayDays(undefined)).toBe(2);
     expect(reviewRequestDelayDays(1)).toBeNull();
     expect(reviewRequestDelayDays(11)).toBeNull();
@@ -80,7 +88,10 @@ describe('shop review settings and fulfillment requests', () => {
     expect(worker).toContain('fulfillments/create');
     expect(worker).toContain('deliverReviewEmail');
     expect(worker).toContain('/review-request/');
-    expect(readFileSync('app/routes/review.$token.tsx', 'utf8')).toContain("status: 'SENT'");
+    const reviewPage = readFileSync('app/routes/review.$token.tsx', 'utf8');
+    expect(reviewPage).toContain("status: 'SENT'");
+    expect(reviewPage).toContain('Reviewing as');
+    expect(reviewPage).not.toContain('name="displayName"');
     expect(sync).toContain('planOrderReviewEmail');
     expect(sync).toContain('reviewSendAt');
     expect(sync).toContain('automaticRequestsEnabled');
