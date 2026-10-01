@@ -5,7 +5,7 @@ import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {isSameOrigin} from '../lib/csrf.server';
 import {loadEnabledSmtp} from '../modules/email/delivery.server';
-import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
+import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewEmailTrigger, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
@@ -20,6 +20,7 @@ export async function loader({request}: {request: Request}) {
     primaryColor: shop?.settings?.primaryColor ?? '#2563eb',
     showWriteReviewButton: shop?.settings?.showWriteReviewButton === true,
     automaticRequests: shop?.settings?.automaticRequests === true,
+    reviewRequestTrigger: reviewEmailTrigger(shop?.settings?.reviewRequestTrigger),
     requestDelayDays: String(normalizeReviewDelayDays(shop?.settings?.requestDelayDays)),
     emailReady,
   };
@@ -37,12 +38,17 @@ export async function action({request}: {request: Request}) {
   if (!shop) return {error: 'Shop is not initialized.'};
   const requestDelayDays = reviewRequestDelayDays(formData.get('requestDelayDays'));
   if (!requestDelayDays) return {error: 'Choose a delay from 2 to 10 days.'};
+  const reviewRequestTrigger = reviewEmailTrigger(formData.get('reviewRequestTrigger'));
+  if (formData.get('reviewRequestTrigger') !== 'FULFILLMENT' && formData.get('reviewRequestTrigger') !== 'PAID') {
+    return {error: 'Choose whether review emails start after fulfillment or after payment.'};
+  }
   await db.shopSettings.upsert({
     where: {shopId: shop.id},
     update: {
       primaryColor,
       showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
       automaticRequests: formData.get('automaticRequests') === 'true',
+      reviewRequestTrigger,
       requestDelayDays,
     },
     create: {
@@ -50,6 +56,7 @@ export async function action({request}: {request: Request}) {
       primaryColor,
       showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
       automaticRequests: formData.get('automaticRequests') === 'true',
+      reviewRequestTrigger,
       requestDelayDays,
     },
   });
@@ -63,7 +70,7 @@ export default function Settings() {
   return (
     <AdminShell title="Settings" subtitle="Control review requests, the storefront button, and appearance.">
       <SettingsForm
-        key={`${settings.showWriteReviewButton}:${settings.automaticRequests}:${settings.requestDelayDays}:${settings.primaryColor}`}
+        key={`${settings.showWriteReviewButton}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
         settings={settings}
         result={result}
         saving={navigation.state === 'submitting'}
@@ -84,12 +91,14 @@ function SettingsForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [showWriteReviewButton, setShowWriteReviewButton] = useState(settings.showWriteReviewButton);
   const [automaticRequests, setAutomaticRequests] = useState(settings.automaticRequests);
+  const [reviewRequestTrigger, setReviewRequestTrigger] = useState(settings.reviewRequestTrigger);
   const [requestDelayDays, setRequestDelayDays] = useState(settings.requestDelayDays);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   return (
     <Form method="post" ref={formRef} className="grid max-w-3xl gap-4">
       <input type="hidden" name="showWriteReviewButton" value={showWriteReviewButton ? 'true' : 'false'} />
       <input type="hidden" name="automaticRequests" value={automaticRequests ? 'true' : 'false'} />
+      <input type="hidden" name="reviewRequestTrigger" value={reviewRequestTrigger} />
       <input type="hidden" name="requestDelayDays" value={requestDelayDays} />
       <input type="hidden" name="primaryColor" value={primaryColor} />
       {result?.error ? <p className="rounded-lg bg-[#fee9e8] px-3 py-2 text-sm text-[#8e1f0b]" role="alert">{result.error}</p> : null}
@@ -107,19 +116,28 @@ function SettingsForm({
       </section>
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
         <h2 className="text-base font-semibold">Review requests</h2>
-        <p className="mt-1 text-sm text-[#6d7175]">One email is sent after the latest fulfillment, once the delay has passed.</p>
+        <p className="mt-1 text-sm text-[#6d7175]">One email covers every product in the order. The customer reviews them together on one page.</p>
         <label className="mt-3 flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={automaticRequests} onChange={(event) => setAutomaticRequests(event.currentTarget.checked)} />
-          <span>Automatic review-request emails. Customers are emailed after their products are fulfilled.</span>
+          <span>Automatic review-request emails.</span>
         </label>
         {automaticRequests ? (
-          <label className="mt-3 grid gap-1 text-sm font-semibold">
-            Send review request after fulfillment
-            <select className="min-h-10 rounded-lg border border-[#c9cccf] px-2 font-normal" value={requestDelayDays} onChange={(event) => setRequestDelayDays(event.currentTarget.value)}>
-              {REVIEW_DELAY_DAYS.map((days) => <option key={days} value={days}>{days} days</option>)}
-            </select>
-          </label>
-        ) : <p className="mt-3 text-sm text-[#6d7175]">Turn automatic emails on to choose when the request is sent.</p>}
+          <div className="mt-3 grid gap-3">
+            <label className="grid gap-1 text-sm font-semibold">
+              Send the review email when
+              <select className="min-h-10 rounded-lg border border-[#c9cccf] px-2 font-normal" value={reviewRequestTrigger} onChange={(event) => setReviewRequestTrigger(event.currentTarget.value === 'PAID' ? 'PAID' : 'FULFILLMENT')}>
+                <option value="FULFILLMENT">The order is fulfilled</option>
+                <option value="PAID">The order is paid</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-semibold">
+              {reviewRequestTrigger === 'PAID' ? 'Wait this many days after the order is paid' : 'Wait this many days after fulfillment'}
+              <select className="min-h-10 rounded-lg border border-[#c9cccf] px-2 font-normal" value={requestDelayDays} onChange={(event) => setRequestDelayDays(event.currentTarget.value)}>
+                {REVIEW_DELAY_DAYS.map((days) => <option key={days} value={days}>{days} days</option>)}
+              </select>
+            </label>
+          </div>
+        ) : <p className="mt-3 text-sm text-[#6d7175]">Turn automatic emails on to choose whether they start after fulfillment or after payment.</p>}
       </section>
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
         <h2 className="text-base font-semibold">Appearance</h2>

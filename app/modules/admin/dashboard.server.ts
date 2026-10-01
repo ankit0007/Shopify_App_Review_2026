@@ -1,4 +1,5 @@
 import {db} from '../../db.server';
+import {reviewEmailTrigger} from '../commerce/fulfillment-lines';
 import {summarizeRatingCounts} from '../reviews/rating';
 import {emptyDistribution, productPerformance, reviewActivity, summarizeRequests, type RatingDistribution} from './dashboard-metrics';
 
@@ -130,10 +131,11 @@ async function loadSettings(shopId: string) {
   try {
     const settings = await db.shopSettings.findUnique({
       where: {shopId},
-      select: {automaticRequests: true, requestDelayDays: true, showWriteReviewButton: true},
+      select: {automaticRequests: true, reviewRequestTrigger: true, requestDelayDays: true, showWriteReviewButton: true},
     });
     return {
       automaticRequests: settings?.automaticRequests === true,
+      reviewRequestTrigger: reviewEmailTrigger(settings?.reviewRequestTrigger),
       requestDelayDays: settings?.requestDelayDays ?? null,
       showWriteReviewButton: settings?.showWriteReviewButton === true,
     };
