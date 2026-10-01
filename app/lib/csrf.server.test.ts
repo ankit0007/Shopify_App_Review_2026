@@ -7,6 +7,17 @@ describe('CSRF origin checks', () => {
     expect(isSameOrigin(new Request('https://app.test/review/token', {headers: {origin: 'https://app.test'}}))).toBe(true);
   });
 
+  it('allows the public https origin when nginx forwards the app over http', () => {
+    expect(isSameOrigin(new Request('http://127.0.0.1:3500/app/settings', {
+      headers: {
+        origin: 'https://shopifyreview.it3.in',
+        host: 'shopifyreview.it3.in',
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'shopifyreview.it3.in',
+      },
+    }))).toBe(true);
+  });
+
   it('rejects a cross-origin browser mutation', () => {
     expect(isSameOrigin(new Request('https://app.test/review/token', {
       headers: {origin: 'https://attacker.test'},

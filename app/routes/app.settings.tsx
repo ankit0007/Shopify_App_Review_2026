@@ -60,7 +60,25 @@ export default function Settings() {
   const settings = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const navigation = useNavigation();
-  const saving = navigation.state === 'submitting';
+  return (
+    <SettingsForm
+      key={`${settings.showWriteReviewButton}:${settings.automaticRequests}:${settings.requestDelayDays}:${settings.primaryColor}`}
+      settings={settings}
+      result={result}
+      saving={navigation.state === 'submitting'}
+    />
+  );
+}
+
+function SettingsForm({
+  settings,
+  result,
+  saving,
+}: {
+  settings: ReturnType<typeof useLoaderData<typeof loader>>;
+  result: ReturnType<typeof useActionData<typeof action>>;
+  saving: boolean;
+}) {
   const formRef = useRef<HTMLFormElement>(null);
   const [showWriteReviewButton, setShowWriteReviewButton] = useState(settings.showWriteReviewButton);
   const [automaticRequests, setAutomaticRequests] = useState(settings.automaticRequests);
