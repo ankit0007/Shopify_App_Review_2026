@@ -31,6 +31,40 @@
   tab.setAttribute('aria-haspopup', 'dialog');
   tab.setAttribute('aria-expanded', 'false');
   tab.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${PATH}"/></svg><span>Reviews</span>`;
+
+  function applyButtonSettings(data) {
+    const position = String(data.reviewsButtonPosition || 'middle-right');
+    const [row, column] = position.split('-');
+    const horizontal = Math.min(500, Math.max(0, Number(data.reviewsButtonHorizontalOffset) || 0));
+    const vertical = Math.min(500, Math.max(0, Number(data.reviewsButtonVerticalOffset) || 50));
+    const transforms = [];
+    tab.style.top = '';
+    tab.style.right = '';
+    tab.style.bottom = '';
+    tab.style.left = '';
+    tab.style.marginTop = '';
+    tab.style.marginLeft = '';
+    tab.style.transform = '';
+    if (row === 'middle') {
+      tab.style.top = '50%';
+      tab.style.marginTop = `${vertical - 50}px`;
+      transforms.push('translateY(-50%)');
+    } else if (row === 'top') {
+      tab.style.top = `${vertical}px`;
+    } else {
+      tab.style.bottom = `${vertical}px`;
+    }
+    if (column === 'left') tab.style.left = `${horizontal}px`;
+    else if (column === 'center') {
+      tab.style.left = '50%';
+      tab.style.marginLeft = `${horizontal}px`;
+      transforms.push('translateX(-50%)');
+    } else tab.style.right = `${horizontal}px`;
+    tab.style.transform = transforms.join(' ') || 'none';
+    tab.style.writingMode = data.reviewsButtonOrientation === 'horizontal' ? 'horizontal-tb' : 'vertical-rl';
+    tab.style.flexDirection = data.reviewsButtonOrientation === 'horizontal' ? 'row' : 'column';
+    tab.style.borderRadius = data.reviewsButtonOrientation === 'horizontal' ? '12px' : '12px 0 0 12px';
+  }
   const modal = el('div', 'sr-tab-modal');
   modal.hidden = true;
   modal.setAttribute('role', 'dialog');
@@ -108,6 +142,7 @@
         modal.remove();
         return;
       }
+      applyButtonSettings(data);
       if (!tab.isConnected) document.body.append(tab, modal);
       const count = Number(data.totalReviews) || 0;
       const average = count && Number.isFinite(Number(data.averageRating)) ? Number(data.averageRating) : null;
