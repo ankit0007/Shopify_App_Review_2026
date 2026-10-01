@@ -12,11 +12,11 @@ export function adminPageSize(value: string | null): AdminPageSize {
   return (ADMIN_PAGE_SIZES as readonly number[]).includes(size) ? size as AdminPageSize : ADMIN_PAGE_SIZE;
 }
 
-export function pageCount(total: number, pageSize = ADMIN_PAGE_SIZE) {
+export function pageCount(total: number, pageSize: number = ADMIN_PAGE_SIZE) {
   return Math.max(1, Math.ceil(total / pageSize));
 }
 
-export function adminRangeLabel(page: number, total: number, noun: string, pageSize = ADMIN_PAGE_SIZE) {
+export function adminRangeLabel(page: number, total: number, noun: string, pageSize: number = ADMIN_PAGE_SIZE) {
   if (total < 1) return '';
   const safePage = Math.min(Math.max(1, page), pageCount(total, pageSize));
   const start = (safePage - 1) * pageSize + 1;

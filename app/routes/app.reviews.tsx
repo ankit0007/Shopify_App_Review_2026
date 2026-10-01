@@ -1,57 +1,81 @@
 import {useState} from 'react';
-import {data, Form, useLoaderData} from 'react-router';
-import {BlockStack, Card, EmptyState, InlineStack, Page, Text} from '@shopify/polaris';
+import {data, Form, useLoaderData, useNavigation, useSearchParams} from 'react-router';
 import {AdminListPagination} from '../components/admin-list-pagination';
 import {AddReviewDialog} from '../components/add-review-dialog';
+import {AdminShell, Badge, Button, EmbeddedFields, EmptyState, RatingStars, Skeleton, statusTone} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
+import {config} from '../config.server';
 import {db} from '../db.server';
+import {decodeOpaqueCursor, encodeOpaqueCursor} from '../lib/shopify-signatures.server';
 import {adminReviewRequestAllowed, canonicalProductId} from '../modules/reviews/admin-review';
 import {createAdminReview, readAdminReviewForm, verifyShopProduct} from '../modules/reviews/admin-review.server';
 import {moderateReview} from '../modules/reviews/moderation.service.server';
 import {formatAverage} from '../modules/reviews/rating';
-import {ADMIN_PAGE_SIZE, adminPage, pageCount} from '../modules/admin/page';
+import {pageCount} from '../modules/admin/page';
+import {
+  adminReviewCursorPayload,
+  adminReviewHref,
+  applyAdminCursor,
+  parseAdminReviewListQuery,
+  readAdminReviewCursor,
+  reviewOrderBy,
+} from '../modules/admin/review-list';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   const url = new URL(request.url);
-  const status = url.searchParams.get('status');
-  const rating = Number(url.searchParams.get('rating') ?? 0);
-  const search = url.searchParams.get('q')?.trim();
-  const page = adminPage(url.searchParams.get('page'));
+  const parsed = parseAdminReviewListQuery(url.searchParams);
+  const cursorValue = url.searchParams.get('cursor');
+  const decoded = cursorValue ? decodeOpaqueCursor(cursorValue, config.SHOPIFY_API_SECRET) : null;
+  const resolved = applyAdminCursor(parsed, decoded ? readAdminReviewCursor(decoded) : null, Boolean(cursorValue));
+  const listQuery = resolved.query;
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
   const where = {
     shopId: shop?.id ?? '',
     deletedAt: null,
-    ...(status && ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN'].includes(status) ? {status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN'} : {}),
-    ...(rating >= 1 && rating <= 5 ? {rating} : {}),
-    ...(search ? {OR: [{body: {contains: search, mode: 'insensitive' as const}}, {displayName: {contains: search, mode: 'insensitive' as const}}, {product: {title: {contains: search, mode: 'insensitive' as const}}}]} : {}),
+    ...(listQuery.status ? {status: listQuery.status} : {}),
+    ...(listQuery.rating ? {rating: listQuery.rating} : {}),
+    ...(listQuery.search ? {OR: [
+      {body: {contains: listQuery.search, mode: 'insensitive' as const}},
+      {displayName: {contains: listQuery.search, mode: 'insensitive' as const}},
+      {title: {contains: listQuery.search, mode: 'insensitive' as const}},
+      {product: {title: {contains: listQuery.search, mode: 'insensitive' as const}}},
+    ]} : {}),
   };
-  const [total, reviews] = shop
-    ? await Promise.all([
-      db.review.count({where}),
-      db.review.findMany({
-        where,
-        orderBy: {submittedAt: 'desc'},
-        skip: (page - 1) * ADMIN_PAGE_SIZE,
-        take: ADMIN_PAGE_SIZE,
-        select: {
-          id: true,
-          rating: true,
-          body: true,
-          displayName: true,
-          status: true,
-          product: {select: {title: true}},
-          events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
-        },
-      }),
-    ])
-    : [0, []];
+  const total = shop ? await db.review.count({where}) : 0;
+  const pages = pageCount(total, listQuery.pageSize);
+  const page = Math.min(listQuery.page, pages);
+  const reviews = shop && total > 0 ? await db.review.findMany({
+    where,
+    orderBy: reviewOrderBy(listQuery.sort),
+    skip: (page - 1) * listQuery.pageSize,
+    take: listQuery.pageSize,
+    select: {
+      id: true,
+      rating: true,
+      title: true,
+      body: true,
+      displayName: true,
+      status: true,
+      verifiedPurchase: true,
+      submittedAt: true,
+      product: {select: {title: true}},
+      events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
+    },
+  }) : [];
+  const query = {...listQuery, page};
+  const cursorFor = (target: number) => encodeOpaqueCursor(adminReviewCursorPayload(query, target), config.SHOPIFY_API_SECRET);
   return {
-    reviews: reviews.map(({events, ...review}) => ({...review, adminAdded: events.length > 0})),
-    filters: {status: status ?? '', rating: rating ? String(rating) : '', search: search ?? ''},
+    reviews: reviews.map(({events, ...review}) => ({...review, adminAdded: events.length > 0, submittedAt: review.submittedAt.toISOString()})),
+    filters: query,
     page,
-    pages: pageCount(total),
+    pages,
     total,
+    cursorRejected: resolved.rejected,
+    previousUrl: page > 1 ? adminReviewHref(query, page - 1, cursorFor(page - 1)) : null,
+    nextUrl: page < pages ? adminReviewHref(query, page + 1, cursorFor(page + 1)) : null,
+    firstUrl: adminReviewHref(query, 1, cursorFor(1)),
+    lastUrl: adminReviewHref(query, pages, cursorFor(pages)),
   };
 }
 
@@ -84,39 +108,21 @@ export async function action({request}: {request: Request}) {
   }
   const reviewId = String(form.get('reviewId') ?? '');
   const decision = form.get('decision');
-  if (shop && reviewId && ['APPROVE', 'REJECT', 'HIDE', 'DELETE', 'FEATURE'].includes(String(decision))) {
+  if (shop && reviewId && ['APPROVE', 'REJECT', 'HIDE', 'DELETE', 'FEATURE', 'VERIFY', 'UNVERIFY'].includes(String(decision))) {
     await moderateReview({
       shopId: shop.id,
       reviewId,
-      action: decision as 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE',
+      action: decision as 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE' | 'VERIFY' | 'UNVERIFY',
     });
   }
   return null;
 }
 
-const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
-
-function Stars({rating}: {rating: number}) {
-  return (
-    <span aria-label={`${rating} out of 5 stars`} style={{display: 'inline-flex', gap: 2}}>
-      {[1, 2, 3, 4, 5].map((value) => (
-        <svg key={value} viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d={STAR_PATH} fill={value <= rating ? '#F5B301' : '#D9DDE3'} />
-        </svg>
-      ))}
-    </span>
-  );
-}
-
-const statusColor: Record<string, {color: string; background: string}> = {
-  PENDING: {color: '#92400e', background: '#fef3c7'},
-  APPROVED: {color: '#166534', background: '#dcfce7'},
-  REJECTED: {color: '#991b1b', background: '#fee2e2'},
-};
-
 export default function Reviews() {
-  const {reviews, filters, page, pages, total} = useLoaderData<typeof loader>();
-  const [adding, setAdding] = useState(false);
+  const {reviews, filters, page, pages, total, previousUrl, nextUrl, firstUrl, lastUrl, cursorRejected} = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const [params] = useSearchParams();
+  const [adding, setAdding] = useState(params.get('add') === '1');
   const [notice, setNotice] = useState<null | {
     productTitle: string;
     rating: number;
@@ -125,14 +131,19 @@ export default function Reviews() {
     averageRating: number | null;
     reviewCount: number;
   }>(null);
+  const loading = navigation.state === 'loading';
   return (
-    <Page title="Reviews" primaryAction={{content: 'Add Review', onAction: () => setAdding(true)}}>
+    <AdminShell
+      title="Reviews"
+      subtitle="Approve, reject, and add reviews for this store."
+      actions={<Button onClick={() => setAdding(true)}>Add review</Button>}
+    >
       <AddReviewDialog open={adding} onClose={(review) => {
         setAdding(false);
         if (review) setNotice(review);
       }} />
       {notice ? (
-        <div role="status" style={successNotice}>
+        <div role="status" className="mb-4 rounded-xl border border-[#b7ebc6] bg-[#e3f1df] p-4 text-sm text-[#0c5132]">
           <strong>Review added successfully.</strong>
           <p>{notice.productTitle} · {notice.rating} out of 5 stars · {notice.displayName} · {notice.status === 'APPROVED' ? 'Approved' : 'Pending'}</p>
           <p>{notice.status === 'APPROVED'
@@ -140,126 +151,124 @@ export default function Reviews() {
             : 'This review is pending and is not included in the public rating.'}</p>
         </div>
       ) : null}
-      <Form method="get">
-        <InlineStack gap="200" wrap>
-          <input name="q" defaultValue={filters.search} placeholder="Search reviews or products" />
-          <select name="status" defaultValue={filters.status} aria-label="Filter by status">
+      {cursorRejected ? <p className="mb-3 text-sm text-[#8a6116]" role="status">That page link did not match these filters, so the first page is shown.</p> : null}
+      <Form method="get" className="mb-4 flex flex-wrap items-end gap-2">
+        <EmbeddedFields />
+        <label className="grid gap-1 text-xs font-semibold text-[#6d7175]">
+          Search
+          <input name="q" defaultValue={filters.search} placeholder="Reviews or products" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-3 text-sm font-normal text-[#202223]" />
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-[#6d7175]">
+          Status
+          <select name="status" defaultValue={filters.status} aria-label="Filter by status" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-2 text-sm font-normal text-[#202223]">
             <option value="">All statuses</option>
             <option value="PENDING">Pending</option>
             <option value="APPROVED">Approved</option>
             <option value="REJECTED">Rejected</option>
             <option value="HIDDEN">Hidden</option>
           </select>
-          <select name="rating" defaultValue={filters.rating} aria-label="Filter by rating">
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-[#6d7175]">
+          Rating
+          <select name="rating" defaultValue={filters.rating ? String(filters.rating) : ''} aria-label="Filter by rating" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-2 text-sm font-normal text-[#202223]">
             <option value="">All ratings</option>
             {[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} stars</option>)}
           </select>
-          <button type="submit" style={filterButton}>Filter</button>
-        </InlineStack>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-[#6d7175]">
+          Sort
+          <select name="sort" defaultValue={filters.sort} aria-label="Sort reviews" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-2 text-sm font-normal text-[#202223]">
+            <option value="newest">Newest</option>
+            <option value="highest">Highest</option>
+            <option value="lowest">Lowest</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-[#6d7175]">
+          Per page
+          <select name="pageSize" defaultValue={String(filters.pageSize)} aria-label="Reviews per page" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-2 text-sm font-normal text-[#202223]">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </label>
+        <button type="submit" className="min-h-10 rounded-lg bg-[#008060] px-3 text-sm font-semibold text-white">Apply</button>
       </Form>
-      {reviews.length === 0 ? (
-        <EmptyState heading="No reviews yet" image="" fullWidth>
+      {loading ? (
+        <div className="grid gap-3" aria-busy="true" aria-label="Loading reviews">
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-12" />
+        </div>
+      ) : reviews.length === 0 ? (
+        <EmptyState title="No reviews yet" action={<Button onClick={() => setAdding(true)}>Add a review</Button>}>
           Customer reviews from the product page will appear here. Approve a review to show it on the storefront.
         </EmptyState>
       ) : (
-        <BlockStack gap="300">
-          {reviews.map((review) => {
-            const tone = statusColor[review.status] ?? {color: '#374151', background: '#f3f4f6'};
-            return (
-              <Card key={review.id}>
-                <BlockStack gap="300">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text as="h2" variant="headingMd">{review.product.title}</Text>
-                    <InlineStack gap="200">
-                      {review.adminAdded ? <span style={adminBadge}>Admin added</span> : null}
-                      <span style={{padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: tone.color, background: tone.background}}>
-                        {review.status}
-                      </span>
-                    </InlineStack>
-                  </InlineStack>
-                  <Stars rating={review.rating} />
-                  <Text as="p" fontWeight="semibold">{review.displayName || 'Customer'}</Text>
-                  <Text as="p">{review.body}</Text>
-                  {review.status === 'PENDING' ? (
-                    <Form method="post">
-                      <input type="hidden" name="reviewId" value={review.id} />
-                      <InlineStack gap="200">
-                        <button type="submit" name="decision" value="APPROVE" style={approveButton}>Approve</button>
-                        <button type="submit" name="decision" value="REJECT" style={rejectButton}>Disapprove</button>
-                      </InlineStack>
-                    </Form>
-                  ) : null}
-                  {review.status !== 'DELETED' ? (
-                    <Form method="post">
-                      <input type="hidden" name="reviewId" value={review.id} />
-                      <InlineStack gap="200">
-                        <button type="submit" name="decision" value="FEATURE" style={secondaryButton}>Feature</button>
-                        <button type="submit" name="decision" value="HIDE" style={secondaryButton}>Hide</button>
-                        <button type="submit" name="decision" value="DELETE" style={deleteButton} onClick={(event) => {
-                          if (!window.confirm('Delete this review?')) event.preventDefault();
-                        }}>Delete</button>
-                      </InlineStack>
-                    </Form>
-                  ) : null}
-                </BlockStack>
-              </Card>
-            );
-          })}
-        </BlockStack>
+        <div className="grid gap-3">
+          {reviews.map((review) => (
+            <article key={review.id} className="rounded-xl border border-[#e3e3e3] bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h2 className="text-base font-semibold">{review.product.title}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {review.adminAdded ? <Badge tone="info">Admin added</Badge> : null}
+                  {review.verifiedPurchase ? <Badge tone="success">Verified</Badge> : null}
+                  <Badge tone={statusTone(review.status)}>{review.status}</Badge>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <RatingStars rating={review.rating} label={`${review.rating} out of 5 stars`} />
+                <time className="text-xs text-[#6d7175]" dateTime={review.submittedAt}>{new Date(review.submittedAt).toLocaleString()}</time>
+              </div>
+              <p className="mt-2 text-sm font-semibold">{review.displayName || 'Customer'}</p>
+              {review.title ? <p className="text-sm font-semibold">{review.title}</p> : null}
+              <p className="mt-1 text-sm">{review.body}</p>
+              <Form method="post" className="mt-3">
+                <input type="hidden" name="reviewId" value={review.id} />
+                <input type="hidden" name="decision" value={review.verifiedPurchase ? 'UNVERIFY' : 'VERIFY'} />
+                <label className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={review.verifiedPurchase}
+                    aria-label={`Verified buyer for ${review.displayName || 'this review'}`}
+                    onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                  />
+                  Verified buyer
+                </label>
+              </Form>
+              {review.status === 'PENDING' ? (
+                <Form method="post" className="mt-3 flex flex-wrap gap-2">
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  <button type="submit" name="decision" value="APPROVE" className="min-h-10 rounded-lg bg-[#008060] px-3 text-sm font-semibold text-white">Approve</button>
+                  <button type="submit" name="decision" value="REJECT" className="min-h-10 rounded-lg border border-[#d72c0d] bg-white px-3 text-sm font-semibold text-[#d72c0d]">Disapprove</button>
+                </Form>
+              ) : null}
+              {review.status !== 'DELETED' ? (
+                <Form method="post" className="mt-3 flex flex-wrap gap-2">
+                  <input type="hidden" name="reviewId" value={review.id} />
+                  <button type="submit" name="decision" value="FEATURE" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-3 text-sm font-semibold">Feature</button>
+                  <button type="submit" name="decision" value="HIDE" className="min-h-10 rounded-lg border border-[#c9cccf] bg-white px-3 text-sm font-semibold">Hide</button>
+                  <button type="submit" name="decision" value="DELETE" className="min-h-10 rounded-lg border border-[#d72c0d] bg-white px-3 text-sm font-semibold text-[#d72c0d]" onClick={(event) => {
+                    if (!window.confirm('Delete this review?')) event.preventDefault();
+                  }}>Delete</button>
+                </Form>
+              ) : null}
+            </article>
+          ))}
+        </div>
       )}
-      <AdminListPagination
-        page={page}
-        pages={pages}
-        total={total}
-        noun="review"
-        previousUrl={reviewPageHref(filters, page - 1)}
-        nextUrl={reviewPageHref(filters, page + 1)}
-      />
-    </Page>
+      {total > 0 ? (
+        <AdminListPagination
+          page={page}
+          pages={pages}
+          total={total}
+          noun="review"
+          pageSize={filters.pageSize}
+          previousUrl={previousUrl}
+          nextUrl={nextUrl}
+          firstUrl={firstUrl}
+          lastUrl={lastUrl}
+        />
+      ) : null}
+    </AdminShell>
   );
-}
-
-const approveButton = {
-  padding: '8px 16px',
-  border: 0,
-  borderRadius: 8,
-  background: '#166534',
-  color: '#fff',
-  fontWeight: 700,
-  cursor: 'pointer',
-};
-
-const rejectButton = {
-  padding: '8px 16px',
-  border: '1px solid #991b1b',
-  borderRadius: 8,
-  background: '#fff',
-  color: '#991b1b',
-  fontWeight: 700,
-  cursor: 'pointer',
-};
-
-const secondaryButton = {
-  padding: '7px 12px',
-  border: '1px solid #9ca3af',
-  borderRadius: 8,
-  background: '#fff',
-  color: '#374151',
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-
-const deleteButton = {...secondaryButton, borderColor: '#991b1b', color: '#991b1b'};
-const filterButton = {...approveButton, background: '#1d4ed8'};
-const adminBadge = {padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: '#1e3a8a', background: '#dbeafe'};
-const successNotice = {padding: 16, borderRadius: 12, background: '#dcfce7', color: '#166534', display: 'grid', gap: 4};
-
-function reviewPageHref(filters: {status: string; rating: string; search: string}, page: number) {
-  const params = new URLSearchParams();
-  if (filters.search) params.set('q', filters.search);
-  if (filters.status) params.set('status', filters.status);
-  if (filters.rating) params.set('rating', filters.rating);
-  if (page > 1) params.set('page', String(page));
-  const query = params.toString();
-  return query ? `/app/reviews?${query}` : '/app/reviews';
 }

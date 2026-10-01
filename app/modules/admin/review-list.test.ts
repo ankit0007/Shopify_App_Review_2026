@@ -57,7 +57,9 @@ describe('admin review pagination', () => {
     const second = pageOfReviews(source, query('page=2'));
     const first = pageOfReviews(source, query('page=1'));
     expect(second.items[0]?.id).not.toBe(first.items[0]?.id);
-    expect(pageOfReviews(source, query('page=1')).items.at(-1)?.submittedAt >= second.items[0]?.submittedAt).toBe(true);
+    const oldestOnFirst = first.items.at(-1)?.submittedAt ?? '';
+    const newestOnSecond = second.items[0]?.submittedAt ?? '';
+    expect(oldestOnFirst >= newestOnSecond).toBe(true);
   });
 
   it('handles an empty list and a result that fits on one page', () => {
@@ -79,9 +81,10 @@ describe('admin review pagination', () => {
   });
 
   it('paginates a star filter and a search without mixing in other reviews', () => {
-    const filtered = pageOfReviews(reviews(50), query('rating=4&pageSize=10&page=2'));
+    const filtered = pageOfReviews(reviews(100), query('rating=4&pageSize=10&page=2'));
     expect(filtered.items.every((review) => review.rating === 4)).toBe(true);
     expect(filtered.page).toBe(2);
+    expect(filtered.items).toHaveLength(10);
     const searched = pageOfReviews(reviews(40), query('q=soft%20snow&pageSize=10'));
     expect(searched.total).toBe(10);
     expect(searched.items.every((review) => review.body.toLowerCase().includes('soft snow'))).toBe(true);

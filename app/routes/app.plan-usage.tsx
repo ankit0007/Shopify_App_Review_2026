@@ -1,5 +1,5 @@
-import {Page, Card, ResourceList, ResourceItem, Text, Badge} from '@shopify/polaris';
 import {useLoaderData} from 'react-router';
+import {AdminShell, Badge} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {BillingService} from '../modules/billing/billing.service.server';
@@ -29,20 +29,18 @@ export async function loader({request}: {request: Request}) {
 export default function PlanUsage() {
   const {plan, status, metrics} = useLoaderData<typeof loader>();
   return (
-    <Page title="Plan & Usage">
-      <Card>
-        <Text as="h2" variant="headingMd">Current plan: {plan.name}</Text>
-        <Badge tone={status === 'active' ? 'success' : 'attention'}>{status}</Badge>
-        <ResourceList
-          resourceName={{singular: 'metric', plural: 'metrics'}}
-          items={metrics.map((metric) => ({...metric, id: metric.metric}))}
-          renderItem={(item) => (
-            <ResourceItem id={item.id} onClick={() => undefined}>
-              <Text as="p">{item.label}: {item.used} / {item.limit}</Text>
-            </ResourceItem>
-          )}
-        />
-      </Card>
-    </Page>
+    <AdminShell title="Plan & usage" subtitle={`Current plan: ${plan.name}`}>
+      <section className="max-w-xl rounded-xl border border-[#e3e3e3] bg-white p-4">
+        <Badge tone={status === 'active' ? 'success' : 'warning'}>{status}</Badge>
+        <ul className="mt-4 grid gap-2 text-sm">
+          {metrics.map((metric) => (
+            <li key={metric.metric} className="flex justify-between border-b border-[#f1f2f3] py-2">
+              <span>{metric.label}</span>
+              <span className="font-semibold">{metric.used} / {metric.limit}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </AdminShell>
   );
 }

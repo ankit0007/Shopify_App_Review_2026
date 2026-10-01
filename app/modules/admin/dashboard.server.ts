@@ -1,4 +1,5 @@
 import {db} from '../../db.server';
+import {summarizeRatingCounts} from '../reviews/rating';
 import {emptyDistribution, productPerformance, reviewActivity, summarizeRequests, type RatingDistribution} from './dashboard-metrics';
 
 export async function loadAdminDashboard(shopId: string) {
@@ -17,21 +18,21 @@ export async function loadAdminDashboard(shopId: string) {
 
 async function loadMetrics(shopId: string) {
   try {
-    const [total, approved, pending, rejected, hidden, verified, ratings, distribution] = await Promise.all([
+    const [total, approved, pending, rejected, hidden, verified, distribution] = await Promise.all([
       db.review.count({where: {shopId, deletedAt: null}}),
       db.review.count({where: {shopId, status: 'APPROVED', deletedAt: null}}),
       db.review.count({where: {shopId, status: 'PENDING', deletedAt: null}}),
       db.review.count({where: {shopId, status: 'REJECTED', deletedAt: null}}),
       db.review.count({where: {shopId, status: 'HIDDEN', deletedAt: null}}),
       db.review.count({where: {shopId, status: 'APPROVED', verifiedPurchase: true, deletedAt: null}}),
-      db.review.aggregate({where: {shopId, status: 'APPROVED', deletedAt: null}, _avg: {rating: true}}),
       db.review.groupBy({by: ['rating'], where: {shopId, status: 'APPROVED', deletedAt: null}, _count: {_all: true}}),
     ]);
     const ratingDistribution = emptyDistribution();
     for (const row of distribution) {
       if (row.rating >= 1 && row.rating <= 5) ratingDistribution[row.rating as 1 | 2 | 3 | 4 | 5] = row._count._all;
     }
-    return {total, approved, pending, rejected, hidden, verified, averageRating: ratings._avg.rating ?? 0, ratingDistribution: ratingDistribution as RatingDistribution};
+    const summary = summarizeRatingCounts(distribution.map((row) => ({rating: row.rating, count: row._count._all})));
+    return {total, approved, pending, rejected, hidden, verified, averageRating: summary.averageRating, ratingDistribution: ratingDistribution as RatingDistribution};
   } catch {
     return null;
   }
@@ -49,7 +50,7 @@ async function loadActivity(shopId: string, since: Date) {
     return reviewActivity(rows.map((row) => ({
       day: new Date(row.day).toISOString().slice(0, 10),
       count: Number(row.count),
-    })));
+    }))) ?? [];
   } catch {
     return null;
   }

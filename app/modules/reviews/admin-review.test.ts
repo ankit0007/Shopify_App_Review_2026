@@ -21,7 +21,7 @@ describe('admin add review', () => {
   it('opens an Add Review form on the merchant reviews page', () => {
     const page = readFileSync('app/routes/app.reviews.tsx', 'utf8');
     const dialog = readFileSync('app/components/add-review-dialog.tsx', 'utf8');
-    expect(page).toContain("content: 'Add Review'");
+    expect(page).toContain('>Add review<');
     expect(page).toContain('<AddReviewDialog');
     expect(dialog).toContain('Search by title, handle, or SKU');
     expect(dialog).toContain('role="radiogroup"');

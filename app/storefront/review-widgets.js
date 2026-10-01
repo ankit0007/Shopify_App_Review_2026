@@ -65,7 +65,7 @@
   async function load(root, cursor) {
     const params = new URLSearchParams({
       shop: root.dataset.shop || '',
-      limit: root.dataset.perPage || '5',
+      limit: cursor ? '5' : '3',
       sort: root.dataset.sort || 'newest',
     });
     if (root.dataset.rating) params.set('rating', root.dataset.rating);

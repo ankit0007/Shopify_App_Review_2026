@@ -1,4 +1,5 @@
 import {Outlet, useLoaderData} from 'react-router';
+import '../styles/admin.css';
 import {AppProvider as PolarisAppProvider} from '@shopify/polaris';
 import polarisTranslations from '@shopify/polaris/locales/en.json';
 import {AppProvider} from '@shopify/shopify-app-react-router/react';
@@ -37,7 +38,7 @@ export default function AppLayout() {
           <a href="/app/reviews">Reviews</a>
           <a href="/app/requests">Review Requests</a>
           <a href="/app/settings">Settings</a>
-          <a href="/app/plan-usage">Plan &amp; Usage</a>
+          <a href="/app/plan-usage">Plan &amp; usage</a>
         </NavMenu>
         <Outlet context={{shop}} />
       </PolarisAppProvider>

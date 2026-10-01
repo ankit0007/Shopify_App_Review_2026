@@ -1,55 +1,36 @@
-import {useLoaderData} from 'react-router';
-import {Page, Layout, Card, Text, BlockStack} from '@shopify/polaris';
+import {useNavigation, useRevalidator, useLoaderData} from 'react-router';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
-import {getReviewAnalytics} from '../modules/analytics/analytics.service.server';
-import {listProductRatingSummaries} from '../modules/reviews/rating.server';
-import {formatAverage} from '../modules/reviews/rating';
+import {loadAdminDashboard} from '../modules/admin/dashboard.server';
+import {AdminShell, Button} from '../components/admin/ui';
+import {DashboardSkeleton, DashboardView} from '../components/admin/dashboard-view';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
-  const [analytics, productRatings] = shop
-    ? await Promise.all([getReviewAnalytics(shop.id), listProductRatingSummaries(shop.id)])
-    : [null, []];
-  return {analytics, productRatings};
+  const dashboard = shop ? await loadAdminDashboard(shop.id) : null;
+  return {dashboard, loadedAt: new Date().toISOString()};
 }
 
 export default function Dashboard() {
-  const {analytics, productRatings} = useLoaderData<typeof loader>();
-  const ratingDistribution = analytics?.ratingDistribution ?? {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+  const {dashboard, loadedAt} = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+  const revalidator = useRevalidator();
+  const loading = navigation.state === 'loading' && navigation.location?.pathname === '/app';
   return (
-    <Page title="Dashboard">
-      <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
-              <Text as="h2" variant="headingMd">Customer reviews</Text>
-              <Text as="p">{analytics?.approved ?? 0} approved · {analytics?.pending ?? 0} waiting · {analytics?.rejected ?? 0} rejected</Text>
-              <Text as="p">{analytics?.total ?? 0} total · {analytics?.verified ?? 0} verified · average {(analytics?.averageRating ?? 0).toFixed(1)} / 5</Text>
-              <Text as="p">Ratings: 5-star {ratingDistribution[5]} · 4-star {ratingDistribution[4]} · 3-star {ratingDistribution[3]} · 2-star {ratingDistribution[2]} · 1-star {ratingDistribution[1]}</Text>
-              <Text as="p">{analytics?.photoReviews ?? 0} photo reviews · {analytics?.videoReviews ?? 0} video reviews</Text>
-              <Text as="p">
-                {analytics?.requestConversion == null
-                  ? 'Review-request conversion is not available yet.'
-                  : `${Math.round(analytics.requestConversion * 100)}% of accepted review requests were submitted.`}
-              </Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">Product ratings</Text>
-              {productRatings.length === 0 ? <Text as="p">No approved reviews yet.</Text> : productRatings.map((product) => (
-                <Text as="p" key={product.shopifyProductId}>
-                  {product.title} · {formatAverage(product.averageRating)} · {product.reviewCount} {product.reviewCount === 1 ? 'review' : 'reviews'}
-                </Text>
-              ))}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
+    <AdminShell
+      title="Dashboard"
+      subtitle="Monitor customer feedback, ratings, and review performance."
+      actions={(
+        <>
+          <Button variant="secondary" onClick={() => revalidator.revalidate()} disabled={revalidator.state === 'loading'}>Refresh</Button>
+          <Button href="/app/settings" variant="secondary">Settings</Button>
+        </>
+      )}
+    >
+      {loading ? <DashboardSkeleton /> : dashboard ? <DashboardView data={dashboard} loadedAt={loadedAt} /> : (
+        <p className="text-sm text-[#6d7175]">No reviews yet. Once customers submit reviews, your review analytics will appear here.</p>
+      )}
+    </AdminShell>
   );
 }

@@ -1,4 +1,4 @@
-export type ReviewableLine = {productId: string; title: string; quantity: number};
+export type ReviewableLine = { productId: string; title: string; quantity: number };
 
 type LineItem = {
   product_id?: number | string | null;
@@ -13,6 +13,7 @@ export type CommercePayload = {
   order_id?: number | string | null;
   order_number?: number | null;
   fulfillment_status?: string | null;
+  financial_status?: string | null;
   status?: string | null;
   fulfilled_at?: string | null;
   created_at?: string | null;
@@ -50,7 +51,7 @@ export function reviewSendAt(fulfilledAt: Date, delayDays: unknown) {
 
 const SENT_REQUEST_STATUSES = new Set(['SENT', 'OPENED', 'CLICKED', 'SENDING']);
 
-export function orderEmailAlreadySent(requests: Array<{status: string; sentAt?: Date | null}>) {
+export function orderEmailAlreadySent(requests: Array<{ status: string; sentAt?: Date | null }>) {
   return requests.some((request) => SENT_REQUEST_STATUSES.has(request.status) || request.sentAt != null);
 }
 
@@ -93,13 +94,43 @@ export function reviewableFulfilledLines(payload: CommercePayload): ReviewableLi
       : item.fulfillment_status === 'fulfilled' || (orderFulfilled && item.fulfillment_status == null);
     if (!lineFulfilled) continue;
     seen.add(productId);
-    lines.push({productId, title: item.title?.trim() || 'Product', quantity});
+    lines.push({ productId, title: item.title?.trim() || 'Product', quantity });
   }
   return lines;
 }
 
 export function requestStatusForLine(indexInNewBatch: number) {
   return indexInNewBatch === 0 ? 'SCHEDULED' as const : 'PENDING' as const;
+}
+
+export function reviewEmailTrigger(value: unknown) {
+  return value === 'PAID' ? 'PAID' as const : 'FULFILLMENT' as const;
+}
+
+export function orderIsPaid(status: string | null | undefined) {
+  const normalized = status?.trim().toLowerCase().replaceAll(' ', '_');
+  return normalized === 'paid' || normalized === 'partially_paid';
+}
+
+export function reviewablePurchasedLines(payload: CommercePayload): ReviewableLine[] {
+  const lines: ReviewableLine[] = [];
+  const seen = new Set<string>();
+  for (const item of payload.line_items ?? []) {
+    if (item.gift_card) continue;
+    const productId = item.product_id == null ? '' : String(item.product_id).trim();
+    if (!/^\d{1,20}$/.test(productId) || seen.has(productId)) continue;
+    const quantity = Number(item.quantity ?? 0);
+    if (!Number.isInteger(quantity) || quantity < 1) continue;
+    seen.add(productId);
+    lines.push({ productId, title: item.title?.trim() || 'Product', quantity });
+  }
+  return lines;
+}
+
+export function linesForReviewEmail(payload: CommercePayload, trigger: unknown, paid: boolean) {
+  return reviewEmailTrigger(trigger) === 'PAID'
+    ? (paid ? reviewablePurchasedLines(payload) : [])
+    : reviewableFulfilledLines(payload);
 }
 
 export function automaticRequestsEnabled(value: boolean | null | undefined) {

@@ -4,7 +4,7 @@ import {invalidateRatingCache} from './rating-cache.server';
 export async function moderateReview(input: {
   shopId: string;
   reviewId: string;
-  action: 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE';
+  action: 'APPROVE' | 'REJECT' | 'HIDE' | 'DELETE' | 'FEATURE' | 'VERIFY' | 'UNVERIFY';
   actorId?: string;
 }) {
   const review = await db.review.findFirst({
@@ -29,6 +29,12 @@ export async function moderateReview(input: {
       data: {
         status,
         featured: input.action === 'FEATURE' ? true : review.featured,
+        verifiedPurchase: input.action === 'VERIFY' ? true : input.action === 'UNVERIFY' ? false : review.verifiedPurchase,
+        verificationReason: input.action === 'VERIFY'
+          ? 'Marked as a verified purchase by the merchant.'
+          : input.action === 'UNVERIFY'
+            ? 'Verified purchase removed by the merchant.'
+            : review.verificationReason,
         deletedAt: input.action === 'DELETE' ? new Date() : review.deletedAt,
       },
     });

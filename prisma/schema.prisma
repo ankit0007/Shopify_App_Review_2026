@@ -112,6 +112,7 @@ model ShopSettings {
   shopId                String   @unique
   shop                  Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   automaticRequests     Boolean  @default(false)
+  reviewRequestTrigger  String   @default("FULFILLMENT")
   showWriteReviewButton Boolean  @default(false)
   requestDelayDays      Int      @default(2)
   reminderDelayDays     Int      @default(3)
@@ -178,6 +179,8 @@ model Order {
   shopifyOrderId  String
   orderNumber     String?
   fulfillmentDate DateTime?
+  financialStatus String?
+  paidAt          DateTime?
   status          String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt

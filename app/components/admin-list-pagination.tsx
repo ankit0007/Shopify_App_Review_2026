@@ -1,36 +1,37 @@
-import {Pagination} from '@shopify/polaris';
 import {adminRangeLabel} from '../modules/admin/page';
+import {PaginationFooter} from './admin/ui';
 
 export function AdminListPagination({
   page,
   pages,
   total,
   noun,
+  pageSize,
   previousUrl,
   nextUrl,
+  firstUrl,
+  lastUrl,
 }: {
   page: number;
   pages: number;
   total: number;
   noun: string;
-  previousUrl: string;
-  nextUrl: string;
+  pageSize?: number;
+  previousUrl: string | null;
+  nextUrl: string | null;
+  firstUrl?: string | null;
+  lastUrl?: string | null;
 }) {
   if (total < 1) return null;
   return (
-    <div className="admin-list-pagination">
-      <Pagination
-        type="table"
-        hasPrevious={page > 1}
-        hasNext={page < pages}
-        previousURL={page > 1 ? previousUrl : undefined}
-        nextURL={page < pages ? nextUrl : undefined}
-        label={adminRangeLabel(page, total, noun)}
-      />
-      <style>{`
-        .admin-list-pagination { margin-top: 16px; border: 1px solid #e3e3e3; border-radius: 12px; overflow: hidden; }
-        .admin-list-pagination nav { width: 100%; }
-      `}</style>
-    </div>
+    <PaginationFooter
+      label={adminRangeLabel(page, total, noun, pageSize)}
+      page={page}
+      pages={pages}
+      previousUrl={previousUrl}
+      nextUrl={nextUrl}
+      firstUrl={firstUrl}
+      lastUrl={lastUrl}
+    />
   );
 }

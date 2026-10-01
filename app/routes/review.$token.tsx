@@ -1,22 +1,22 @@
-import {useState} from 'react';
-import {useFetcher, useLoaderData} from 'react-router';
-import {reviewLinkState, sameOrderRequest} from '../modules/reviews/request-access';
-import {hashToken} from '../lib/tokens.server';
-import {db} from '../db.server';
-import {consumeRateLimit, requestClientKey} from '../lib/rate-limit.server';
-import {isSameOrigin} from '../lib/csrf.server';
-import {submitReview} from '../modules/reviews/review.service.server';
-import {publicReviewSubmissionSchema} from '../modules/reviews/review.schema';
+import { useState } from 'react';
+import { useFetcher, useLoaderData } from 'react-router';
+import { reviewLinkState, sameOrderRequest } from '../modules/reviews/request-access';
+import { hashToken } from '../lib/tokens.server';
+import { db } from '../db.server';
+import { consumeRateLimit, requestClientKey } from '../lib/rate-limit.server';
+import { isSameOrigin } from '../lib/csrf.server';
+import { submitReview } from '../modules/reviews/review.service.server';
+import { publicReviewSubmissionSchema } from '../modules/reviews/review.schema';
 
 export function headers() {
-  return {'X-Robots-Tag': 'noindex, nofollow, noarchive'};
+  return { 'X-Robots-Tag': 'noindex, nofollow, noarchive' };
 }
 
 const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
 
 async function anchorForToken(token: string) {
   return db.reviewRequest.findUnique({
-    where: {tokenHash: hashToken(token)},
+    where: { tokenHash: hashToken(token) },
     select: {
       id: true,
       shopId: true,
@@ -25,17 +25,17 @@ async function anchorForToken(token: string) {
       productId: true,
       status: true,
       expiresAt: true,
-      order: {select: {orderNumber: true}},
-      customer: {select: {displayName: true}},
+      order: { select: { orderNumber: true } },
+      customer: { select: { displayName: true } },
     },
   });
 }
 
-export async function loader({request, params}: {request: Request; params: {token?: string}}) {
+export async function loader({ request, params }: { request: Request; params: { token?: string } }) {
   const rate = consumeRateLimit(`review-request:${requestClientKey(request)}`, 60, 60_000);
-  if (!rate.allowed) return {state: 'invalid' as const, message: 'Please wait a moment and try again.', products: [], orderNumber: '', customerName: ''};
+  if (!rate.allowed) return { state: 'invalid' as const, message: 'Please wait a moment and try again.', products: [], orderNumber: '', customerName: '' };
   const token = params.token;
-  if (!token) return {state: 'invalid' as const, message: 'This review link is not available.', products: [], orderNumber: '', customerName: ''};
+  if (!token) return { state: 'invalid' as const, message: 'This review link is not available.', products: [], orderNumber: '', customerName: '' };
   const anchor = await anchorForToken(token);
   const state = reviewLinkState(anchor);
   if (!anchor || state !== 'ready') {
@@ -48,16 +48,16 @@ export async function loader({request, params}: {request: Request; params: {toke
     };
   }
   const requests = anchor.orderId ? await db.reviewRequest.findMany({
-    where: {shopId: anchor.shopId, orderId: anchor.orderId, customerId: anchor.customerId, status: {notIn: ['CANCELLED', 'EXPIRED']}},
-    orderBy: {createdAt: 'asc'},
-    select: {id: true, status: true, product: {select: {shopifyProductId: true, title: true, imageUrl: true}}},
+    where: { shopId: anchor.shopId, orderId: anchor.orderId, customerId: anchor.customerId, status: { notIn: ['CANCELLED', 'EXPIRED'] } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, status: true, product: { select: { shopifyProductId: true, title: true, imageUrl: true } } },
   }) : await db.reviewRequest.findMany({
-    where: {id: anchor.id},
-    select: {id: true, status: true, product: {select: {shopifyProductId: true, title: true, imageUrl: true}}},
+    where: { id: anchor.id },
+    select: { id: true, status: true, product: { select: { shopifyProductId: true, title: true, imageUrl: true } } },
   });
   await db.reviewRequest.updateMany({
-    where: {id: {in: requests.map((item) => item.id)}, status: 'SENT'},
-    data: {status: 'OPENED'},
+    where: { id: { in: requests.map((item) => item.id) }, status: 'SENT' },
+    data: { status: 'OPENED' },
   });
   return {
     state: 'ready' as const,
@@ -73,44 +73,44 @@ export async function loader({request, params}: {request: Request; params: {toke
   };
 }
 
-export async function action({request, params}: {request: Request; params: {token?: string}}) {
-  if (!isSameOrigin(request)) return {ok: false, message: 'Request could not be verified.'};
+export async function action({ request, params }: { request: Request; params: { token?: string } }) {
+  if (!isSameOrigin(request)) return { ok: false, message: 'Request could not be verified.' };
   const rate = consumeRateLimit(`review-submit:${requestClientKey(request)}`, 10, 60 * 60_000);
-  if (!rate.allowed) return {ok: false, message: 'Too many submissions. Try again later.'};
+  if (!rate.allowed) return { ok: false, message: 'Too many submissions. Try again later.' };
   const token = params.token;
-  if (!token) return {ok: false, message: 'This review link is not available.'};
+  if (!token) return { ok: false, message: 'This review link is not available.' };
   const anchor = await anchorForToken(token);
-  if (!anchor || reviewLinkState(anchor) !== 'ready') return {ok: false, message: 'This review link is not available.'};
+  if (!anchor || reviewLinkState(anchor) !== 'ready') return { ok: false, message: 'This review link is not available.' };
   const form = await request.formData();
   const productId = String(form.get('productId') ?? '');
-  if (!/^\d{1,20}$/.test(productId)) return {ok: false, message: 'Choose a product from this order.'};
+  if (!/^\d{1,20}$/.test(productId)) return { ok: false, message: 'Choose a product from this order.' };
   const target = await db.reviewRequest.findFirst({
     where: {
       shopId: anchor.shopId,
-      ...(anchor.orderId ? {orderId: anchor.orderId, customerId: anchor.customerId} : {id: anchor.id}),
-      product: {shopifyProductId: productId, shopId: anchor.shopId},
-      status: {notIn: ['CANCELLED', 'EXPIRED']},
+      ...(anchor.orderId ? { orderId: anchor.orderId, customerId: anchor.customerId } : { id: anchor.id }),
+      product: { shopifyProductId: productId, shopId: anchor.shopId },
+      status: { notIn: ['CANCELLED', 'EXPIRED'] },
     },
-    select: {id: true, shopId: true, orderId: true, customerId: true, productId: true, status: true},
+    select: { id: true, shopId: true, orderId: true, customerId: true, productId: true, status: true },
   });
   if (!target?.productId || !sameOrderRequest(anchor, target) && target?.id !== anchor.id) {
-    return {ok: false, message: 'That product is not part of this review link.'};
+    return { ok: false, message: 'That product is not part of this review link.' };
   }
   if (target.orderId) {
     const fulfilled = await db.orderItem.findFirst({
-      where: {orderId: target.orderId, productId: target.productId, fulfilledQuantity: {gt: 0}, product: {shopId: anchor.shopId}},
-      select: {id: true},
+      where: { orderId: target.orderId, productId: target.productId, fulfilledQuantity: { gt: 0 }, product: { shopId: anchor.shopId } },
+      select: { id: true },
     });
-    if (!fulfilled) return {ok: false, message: 'That product is not part of this review link.'};
+    if (!fulfilled) return { ok: false, message: 'That product is not part of this review link.' };
   }
-  if (target.status === 'SUBMITTED') return {ok: true, productId, submitted: true, message: 'Review submitted. Thank you for sharing your experience.'};
+  if (target.status === 'SUBMITTED') return { ok: true, productId, submitted: true, message: 'Review submitted. Thank you for sharing your experience.' };
   const parsed = publicReviewSubmissionSchema.safeParse({
     rating: form.get('rating'),
     title: String(form.get('title') ?? ''),
     body: String(form.get('body') ?? ''),
     displayName: String(form.get('displayName') ?? ''),
   });
-  if (!parsed.success) return {ok: false, productId, message: 'Enter a rating, your name, and a review of at least 10 characters.'};
+  if (!parsed.success) return { ok: false, productId, message: 'Enter a rating, your name, and a review of at least 10 characters.' };
   try {
     const review = await submitReview({
       shopId: target.shopId,
@@ -130,7 +130,7 @@ export async function action({request, params}: {request: Request; params: {toke
         : 'Thank you. Your review is now published.',
     };
   } catch {
-    return {ok: false, productId, message: 'This product could not be reviewed again.'};
+    return { ok: false, productId, message: 'This product could not be reviewed again.' };
   }
 }
 
@@ -152,7 +152,7 @@ export default function ReviewRequestPage() {
   );
 }
 
-function ProductReview({product, customerName}: {product: {id: string; title: string; imageUrl: string | null; submitted: boolean}; customerName: string}) {
+function ProductReview({ product, customerName }: { product: { id: string; title: string; imageUrl: string | null; submitted: boolean }; customerName: string }) {
   const fetcher = useFetcher<typeof action>();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);

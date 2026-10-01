@@ -1,10 +1,12 @@
-import {db} from './db.server';
-import {config} from './config.server';
-import {decryptData} from './lib/encrypted-data.server';
-import {automaticRequestsEnabled} from './modules/commerce/fulfillment-lines';
-import {syncOrderWebhook, type ShopifyOrderPayload} from './modules/commerce/sync.service.server';
-import {createDeliveryEmailService, deliverReviewEmail, loadEnabledSmtp} from './modules/email/delivery.server';
-import {sanitizeSmtpError} from './modules/email/smtp-config';
+import { db } from './db.server';
+import { config } from './config.server';
+import { decryptData } from './lib/encrypted-data.server';
+import { automaticRequestsEnabled, orderIsPaid, reviewEmailTrigger } from './modules/commerce/fulfillment-lines';
+import { attachProductImages } from './modules/commerce/product-images.server';
+import { displayOrderNumber } from './modules/email/template';
+import { syncOrderWebhook, type ShopifyOrderPayload } from './modules/commerce/sync.service.server';
+import { createDeliveryEmailService, deliverReviewEmail, loadEnabledSmtp } from './modules/email/delivery.server';
+import { sanitizeSmtpError } from './modules/email/smtp-config';
 
 /**
  * Worker entrypoint. A production deployment should run this process under a
@@ -16,11 +18,11 @@ export async function processDueReviewRequests(now = new Date()) {
   const smtp = await loadEnabledSmtp();
   const reminderCandidates = await db.reviewRequest.findMany({
     where: {
-      status: {in: ['SENT', 'OPENED']},
-      sentAt: {not: null, lte: new Date(now.getTime() - 86_400_000)},
-      expiresAt: {gt: now},
+      status: { in: ['SENT', 'OPENED'] },
+      sentAt: { not: null, lte: new Date(now.getTime() - 86_400_000) },
+      expiresAt: { gt: now },
     },
-    include: {shop: {include: {settings: true}}},
+    include: { shop: { include: { settings: true } } },
     take: 100,
   });
   for (const request of reminderCandidates) {
@@ -29,72 +31,106 @@ export async function processDueReviewRequests(now = new Date()) {
     const dueAt = new Date(request.sentAt!.getTime() + settings.reminderDelayDays * 86_400_000);
     if (dueAt > now) continue;
     await db.reviewRequest.updateMany({
-      where: {id: request.id, status: {in: ['SENT', 'OPENED']}, reminderCount: request.reminderCount},
-      data: {status: 'SCHEDULED', scheduledAt: now, reminderCount: {increment: 1}},
+      where: { id: request.id, status: { in: ['SENT', 'OPENED'] }, reminderCount: request.reminderCount },
+      data: { status: 'SCHEDULED', scheduledAt: now, reminderCount: { increment: 1 } },
     });
   }
   const expired = await db.reviewRequest.findMany({
-    where: {status: {in: ['SCHEDULED', 'SENT', 'PENDING', 'OPENED']}, expiresAt: {lt: now}},
-    select: {id: true},
+    where: { status: { in: ['SCHEDULED', 'SENT', 'PENDING', 'OPENED'] }, expiresAt: { lt: now } },
+    select: { id: true },
   });
   if (expired.length > 0) {
     const expiredIds = expired.map((request) => request.id);
     await db.reviewRequest.updateMany({
-      where: {id: {in: expiredIds}},
-      data: {status: 'EXPIRED'},
+      where: { id: { in: expiredIds } },
+      data: { status: 'EXPIRED' },
     });
     await db.emailDelivery.updateMany({
-      where: {reviewRequestId: {in: expiredIds}, status: {in: ['QUEUED', 'PROCESSING', 'RETRYING']}},
-      data: {status: 'EXPIRED'},
+      where: { reviewRequestId: { in: expiredIds }, status: { in: ['QUEUED', 'PROCESSING', 'RETRYING'] } },
+      data: { status: 'EXPIRED' },
     });
   }
   const due = await db.reviewRequest.findMany({
     where: {
       status: 'SCHEDULED',
-      scheduledAt: {lte: now},
-      shop: {uninstalledAt: null, settings: {is: {automaticRequests: true}}},
+      scheduledAt: { lte: now },
+      shop: { uninstalledAt: null, settings: { is: { automaticRequests: true } } },
     },
-    include: {customer: true, product: true, order: true, shop: {include: {settings: true}}},
+    include: { customer: true, product: true, order: true, shop: { include: { settings: true } } },
     take: 100,
   });
   for (const request of due) {
     const claimed = await db.reviewRequest.updateMany({
-      where: {id: request.id, status: 'SCHEDULED'},
-      data: {status: 'SENDING'},
+      where: { id: request.id, status: 'SCHEDULED' },
+      data: { status: 'SENDING' },
     });
     if (claimed.count !== 1) continue;
     if (!automaticRequestsEnabled(request.shop.settings?.automaticRequests)) {
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SENDING'},
-        data: {status: 'SCHEDULED'},
+        where: { id: request.id, status: 'SENDING' },
+        data: { status: 'SCHEDULED' },
       });
       continue;
     }
-    const [optedOut, existingReview, fulfilledProducts] = await Promise.all([
+    const trigger = reviewEmailTrigger(request.shop.settings?.reviewRequestTrigger);
+    if (request.orderId && request.customerId) {
+      const earlierMail = await db.reviewRequest.findFirst({
+        where: {
+          shopId: request.shopId,
+          orderId: request.orderId,
+          customerId: request.customerId,
+          id: { not: request.id },
+          OR: [
+            { status: { in: ['SENDING', 'SENT', 'OPENED', 'CLICKED', 'SUBMITTED'] } },
+            { sentAt: { not: null } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (earlierMail) {
+        await db.reviewRequest.updateMany({
+          where: { id: request.id, status: 'SENDING' },
+          data: { status: 'PENDING', scheduledAt: null, lastError: null },
+        });
+        continue;
+      }
+    }
+    if (trigger === 'PAID' && !orderIsPaid(request.order?.financialStatus)) {
+      await db.reviewRequest.updateMany({
+        where: { id: request.id, status: 'SENDING' },
+        data: { status: 'PENDING', scheduledAt: null, lastError: 'Waiting until the order is paid' },
+      });
+      continue;
+    }
+    const [optedOut, existingReview, emailProducts] = await Promise.all([
       request.customerId ? db.consent.findFirst({
-        where: {shopId: request.shopId, customerId: request.customerId, purpose: 'review_request', granted: false},
-        select: {id: true},
+        where: { shopId: request.shopId, customerId: request.customerId, purpose: 'review_request', granted: false },
+        select: { id: true },
       }) : null,
       request.customerId && request.productId ? db.review.findFirst({
-        where: {shopId: request.shopId, customerId: request.customerId, productId: request.productId, deletedAt: null},
-        select: {id: true},
+        where: { shopId: request.shopId, customerId: request.customerId, productId: request.productId, deletedAt: null },
+        select: { id: true },
       }) : null,
       request.orderId ? db.orderItem.findMany({
-        where: {orderId: request.orderId, fulfilledQuantity: {gt: 0}, product: {shopId: request.shopId}},
-        select: {product: {select: {title: true, imageUrl: true}}},
+        where: {
+          orderId: request.orderId,
+          ...(trigger === 'PAID' ? { quantity: { gt: 0 } } : { fulfilledQuantity: { gt: 0 } }),
+          product: { shopId: request.shopId },
+        },
+        select: { product: { select: { id: true, title: true, imageUrl: true, shopifyProductId: true } } },
       }) : Promise.resolve([]),
     ]);
-    if (!fulfilledProducts.length) {
+    if (!emailProducts.length) {
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SENDING'},
-        data: {status: 'CANCELLED', lastError: 'No fulfilled products remain'},
+        where: { id: request.id, status: 'SENDING' },
+        data: { status: 'CANCELLED', lastError: trigger === 'PAID' ? 'No purchased products remain' : 'No fulfilled products remain' },
       });
       continue;
     }
     if (request.shop.uninstalledAt || !request.product || optedOut || existingReview) {
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SENDING'},
-        data: {status: 'CANCELLED', lastError: 'Request is no longer eligible'},
+        where: { id: request.id, status: 'SENDING' },
+        data: { status: 'CANCELLED', lastError: 'Request is no longer eligible' },
       });
       continue;
     }
@@ -104,18 +140,19 @@ export async function processDueReviewRequests(now = new Date()) {
       }
       const recipient = decryptData(request.customer.emailEncrypted);
       const token = decryptData(request.tokenEncrypted);
-      const products = fulfilledProducts.flatMap((item) => item.product ? [item.product] : []);
+      const listed = emailProducts.flatMap((item) => item.product ? [item.product] : []);
+      const products = await attachProductImages(request.shop.shopDomain, listed);
       const productName = products.map((product) => product.title).join(', ') || request.product.title;
       const customerName = request.customer.displayName?.trim() || 'there';
       const result = await deliverReviewEmail({
         emailService,
         shopId: request.shopId,
-        shopDomain: request.shop.name || request.shop.shopDomain,
+        shopDomain: request.shop.name && !request.shop.name.includes('myshopify.com') ? request.shop.name : 'Artifyanni',
         reviewRequestId: request.id,
         reminderCount: request.reminderCount,
         recipient,
         productName,
-        orderNumber: request.order?.orderNumber ?? '',
+        orderNumber: displayOrderNumber(request.order?.orderNumber ?? ''),
         customerName,
         products,
         reviewUrl: `${config.SHOPIFY_APP_URL}/review-request/${encodeURIComponent(token)}`,
@@ -124,31 +161,31 @@ export async function processDueReviewRequests(now = new Date()) {
       });
       if (result.status === 'ACCEPTED') {
         await db.reviewRequest.updateMany({
-          where: {id: request.id, status: 'SENDING'},
-          data: {status: 'SENT', sentAt: now, lastError: null},
+          where: { id: request.id, status: 'SENDING' },
+          data: { status: 'SENT', sentAt: now, lastError: null },
         });
         await db.emailEvent.create({
-          data: {shopId: request.shopId, reviewRequestId: request.id, eventType: 'ACCEPTED', providerId: result.providerId},
+          data: { shopId: request.shopId, reviewRequestId: request.id, eventType: 'ACCEPTED', providerId: result.providerId },
         });
       } else if (result.status === 'RETRYING') {
         await db.reviewRequest.updateMany({
-          where: {id: request.id, status: 'SENDING'},
-          data: {status: 'SCHEDULED', scheduledAt: result.nextAttemptAt, lastError: result.failureReason},
+          where: { id: request.id, status: 'SENDING' },
+          data: { status: 'SCHEDULED', scheduledAt: result.nextAttemptAt, lastError: result.failureReason },
         });
       } else {
         await db.reviewRequest.updateMany({
-          where: {id: request.id, status: 'SENDING'},
-          data: {status: 'FAILED', lastError: result.failureReason},
+          where: { id: request.id, status: 'SENDING' },
+          data: { status: 'FAILED', lastError: result.failureReason },
         });
       }
     } catch (error) {
       const safeError = sanitizeSmtpError(error, smtp ? [smtp.password, smtp.username] : []);
       await db.reviewRequest.updateMany({
-        where: {id: request.id, status: 'SENDING'},
-        data: {status: 'FAILED', lastError: safeError},
+        where: { id: request.id, status: 'SENDING' },
+        data: { status: 'FAILED', lastError: safeError },
       });
       await db.emailEvent.create({
-        data: {shopId: request.shopId, reviewRequestId: request.id, eventType: 'FAILED', errorCode: safeError},
+        data: { shopId: request.shopId, reviewRequestId: request.id, eventType: 'FAILED', errorCode: safeError },
       });
     }
   }
@@ -156,8 +193,8 @@ export async function processDueReviewRequests(now = new Date()) {
 
 async function processWebhookEvents() {
   const events = await db.webhookEvent.findMany({
-    where: {processedAt: null, failedAt: null},
-    orderBy: {createdAt: 'asc'},
+    where: { processedAt: null, failedAt: null },
+    orderBy: { createdAt: 'asc' },
     take: 100,
   });
   for (const event of events) {
@@ -168,13 +205,13 @@ async function processWebhookEvents() {
         await syncOrderWebhook(event.shopId, event.payload as ShopifyOrderPayload);
       }
       await db.webhookEvent.update({
-        where: {id: event.id},
-        data: {processedAt: new Date()},
+        where: { id: event.id },
+        data: { processedAt: new Date() },
       });
     } catch (error) {
       await db.webhookEvent.update({
-        where: {id: event.id},
-        data: {failedAt: new Date(), errorMessage: error instanceof Error ? error.message : 'Unknown worker error'},
+        where: { id: event.id },
+        data: { failedAt: new Date(), errorMessage: error instanceof Error ? error.message : 'Unknown worker error' },
       });
     }
   }

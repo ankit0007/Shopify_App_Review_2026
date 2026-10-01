@@ -103,13 +103,14 @@ describe('shop review settings and fulfillment requests', () => {
     expect(sameOrderRequest(anchor, {...anchor, orderId: 'order-b'})).toBe(false);
   });
 
-  it('pages the admin review list five at a time and keeps approved ratings on the existing calculation', () => {
-    expect(ADMIN_PAGE_SIZE).toBe(5);
+  it('pages the admin review list and keeps approved ratings on the existing calculation', () => {
+    expect(ADMIN_PAGE_SIZE).toBe(20);
     expect(adminPage('2')).toBe(2);
     expect(adminPage('0')).toBe(1);
     expect(adminPage('nope')).toBe(1);
-    expect(pageCount(6)).toBe(2);
-    expect(adminRangeLabel(2, 6, 'review')).toBe('6–6 of 6 reviews');
+    expect(pageCount(21)).toBe(2);
+    expect(pageCount(6, 5)).toBe(2);
+    expect(adminRangeLabel(2, 6, 'review', 5)).toBe('6–6 of 6 reviews');
     expect(adminRangeLabel(1, 1, 'request')).toBe('1–1 of 1 request');
     const before = {'5': 1, '4': 2, '3': 0, '2': 1, '1': 0};
     const after = distributionAfterReview(before, 5, 'APPROVED');

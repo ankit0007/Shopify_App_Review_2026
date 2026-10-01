@@ -1,5 +1,6 @@
-import {NavLink} from 'react-router';
+import {NavLink, useSearchParams} from 'react-router';
 import {useId, type ReactNode} from 'react';
+import {embeddedFields, withEmbeddedQuery} from '../../lib/embedded-query';
 import {formatAverage, starFills} from '../../modules/reviews/rating';
 
 const STAR_PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
@@ -13,6 +14,21 @@ const nav = [
   {to: '/app/plan-usage', label: 'Plan & usage', icon: 'card'},
 ] as const;
 
+function useAdminHref() {
+  const [params] = useSearchParams();
+  return (href: string) => withEmbeddedQuery(href, params);
+}
+
+export function AdminLink({href, className, children}: {href: string; className?: string; children: ReactNode}) {
+  const hrefFor = useAdminHref();
+  return <a className={className} href={hrefFor(href)}>{children}</a>;
+}
+
+export function EmbeddedFields() {
+  const [params] = useSearchParams();
+  return embeddedFields(params).map((field) => <input key={field.key} type="hidden" name={field.key} value={field.value} />);
+}
+
 export function AdminShell({
   title,
   subtitle,
@@ -24,6 +40,7 @@ export function AdminShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const href = useAdminHref();
   return (
     <div className="min-h-screen bg-[#f6f6f7] text-[#202223]">
       <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
@@ -39,8 +56,8 @@ export function AdminShell({
           {nav.map((item) => (
             <NavLink
               key={item.to}
-              to={item.to}
-              end={item.end}
+              to={href(item.to)}
+              end={'end' in item ? item.end : undefined}
               className={({isActive}) => `inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold ${focus} ${isActive ? 'border-[#008060] text-[#008060]' : 'border-transparent text-[#6d7175] hover:text-[#202223]'}`}
             >
               <NavIcon name={item.icon} />
@@ -83,13 +100,14 @@ export function Button({
   onClick?: () => void;
   disabled?: boolean;
 }) {
+  const hrefFor = useAdminHref();
   const className = `inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold ${focus} disabled:cursor-not-allowed disabled:opacity-60 ${
     variant === 'primary' ? 'bg-[#008060] text-white hover:bg-[#006e52]' :
     variant === 'danger' ? 'border border-[#d72c0d] bg-white text-[#d72c0d]' :
     variant === 'ghost' ? 'text-[#202223] hover:bg-[#f1f2f3]' :
     'border border-[#c9cccf] bg-white text-[#202223] hover:bg-[#f6f6f7]'
   }`;
-  if (href) return <a className={className} href={href}>{children}</a>;
+  if (href) return <a className={className} href={hrefFor(href)}>{children}</a>;
   return <button className={className} type={type} onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
@@ -183,10 +201,11 @@ export function PaginationFooter({
 }
 
 function PageLink({href, label, disabled, children}: {href?: string | null; label: string; disabled: boolean; children: ReactNode}) {
+  const hrefFor = useAdminHref();
   if (disabled || !href) {
     return <span aria-disabled="true" className="inline-flex min-h-10 items-center rounded-lg border border-[#e3e3e3] px-3 text-sm font-semibold text-[#8c9196]">{children}<span className="sr-only"> {label}</span></span>;
   }
-  return <a href={href} aria-label={label} className={`inline-flex min-h-10 items-center rounded-lg border border-[#c9cccf] bg-white px-3 text-sm font-semibold ${focus}`}>{children}</a>;
+  return <a href={hrefFor(href)} aria-label={label} className={`inline-flex min-h-10 items-center rounded-lg border border-[#c9cccf] bg-white px-3 text-sm font-semibold ${focus}`}>{children}</a>;
 }
 
 function NavIcon({name}: {name: string}) {
