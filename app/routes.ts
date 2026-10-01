@@ -1,8 +1,16 @@
 import type {RouteConfig} from '@react-router/dev/routes';
-import {index, route} from '@react-router/dev/routes';
+import {index, layout, route} from '@react-router/dev/routes';
 
 export default [
-  index('routes/_index.tsx'),
+  layout('routes/public.tsx', [
+    index('routes/_index.tsx'),
+    route('privacy', 'routes/public.privacy.tsx'),
+    route('faq', 'routes/public.faq.tsx'),
+    route('changelog', 'routes/public.changelog.tsx'),
+    route('tutorial', 'routes/public.tutorial.tsx'),
+    route('docs', 'routes/public.docs.tsx'),
+    route('support', 'routes/public.support.tsx'),
+  ]),
   route('auth/*', 'routes/auth.$.tsx'),
   route('health', 'routes/health.ts'),
   route('webhooks', 'routes/webhooks.ts'),

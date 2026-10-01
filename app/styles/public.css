@@ -1,0 +1,121 @@
+.pr-site {
+  min-height: 100vh;
+  margin: 0;
+  background: #f6f6f7;
+  color: #202223;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.pr-site * { box-sizing: border-box; }
+
+.pr-header, .pr-footer {
+  background: #fff;
+  border-bottom: 1px solid #e3e3e3;
+}
+
+.pr-footer { border-bottom: 0; border-top: 1px solid #e3e3e3; }
+
+.pr-bar, .pr-main, .pr-footer-inner {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.pr-bar, .pr-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 16px 0;
+}
+
+.pr-brand {
+  color: #202223;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pr-nav, .pr-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.pr-nav a, .pr-footer-nav a, .pr-site a {
+  color: #005bd3;
+}
+
+.pr-nav a, .pr-footer-nav a {
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.pr-nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; }
+
+.pr-main { padding: 32px 0 64px; }
+
+.pr-card {
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.pr-card + .pr-card { margin-top: 16px; }
+
+.pr-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pr-support-card {
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.pr-support-card h3 { margin-top: 0; }
+.pr-support-card p { margin-bottom: 12px; }
+.pr-support-card a { font-weight: 600; }
+
+.pr-support-faq {
+  border-top: 1px solid #e3e3e3;
+  margin-top: 16px;
+  padding-top: 4px;
+}
+
+.pr-support-faq h3 { margin-top: 20px; }
+.pr-support-faq p { margin-top: 4px; }
+.pr-support-contact { margin-top: 28px; }
+
+.pr-site h1 { margin: 0 0 12px; font-size: clamp(1.8rem, 4vw, 2.4rem); line-height: 1.2; }
+.pr-site h2 { margin: 28px 0 8px; font-size: 1.25rem; }
+.pr-site h3 { margin: 18px 0 6px; font-size: 1.05rem; }
+.pr-site p, .pr-site li { font-size: 1rem; }
+.pr-site ul, .pr-site ol { padding-left: 1.25rem; }
+.pr-lead { font-size: 1.05rem; color: #3d4246; }
+
+.pr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.pr-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #008060;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+.pr-actions a.pr-secondary { background: #fff; color: #202223; border: 1px solid #c9cccf; }
+
+.pr-timeline { display: grid; gap: 16px; margin-top: 16px; }
+.pr-when { color: #6d7175; font-size: 0.9rem; margin: 0; }
+
+@media (max-width: 640px) {
+  .pr-bar, .pr-main, .pr-footer-inner { width: min(960px, calc(100% - 24px)); }
+  .pr-card { padding: 16px; }
+  .pr-support-grid { grid-template-columns: 1fr; }
+}
