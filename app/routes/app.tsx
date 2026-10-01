@@ -40,7 +40,7 @@ export default function AppLayout() {
           <a href="/app/settings">Settings</a>
           <a href="/app/plan-usage">Plan &amp; usage</a>
         </NavMenu>
-        <Outlet context={{shop}} />
+        <Outlet context={{shop, apiKey}} />
       </PolarisAppProvider>
     </AppProvider>
   );

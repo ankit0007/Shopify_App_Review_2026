@@ -149,7 +149,7 @@ function SettingsForm({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Reviews Button</h2>
-            <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button and its position.</p>
+            <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button and its position. The button is shown only after Product Reviews is enabled under Online Store → Themes → Customize → App embeds.</p>
           </div>
           <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold">
             <span>Enable Reviews Button</span>

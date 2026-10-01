@@ -8,6 +8,17 @@ function source(path: string) {
 }
 
 describe('storefront widget safety', () => {
+  it('loads the floating Reviews button only from the Product Reviews app embed', () => {
+    const button = source('blocks/reviews-button.liquid');
+    const ratingEmbed = source('blocks/rating-embed.liquid');
+    expect(button).toContain('"name": "Product Reviews"');
+    expect(button).toContain('"target": "body"');
+    expect(button).toContain('all-reviews-tab.js');
+    expect(ratingEmbed).not.toContain('all-reviews-tab');
+    expect(source('blocks/review-embed.liquid')).not.toContain('all-reviews-tab');
+    expect(source('blocks/review-summary.liquid')).toContain('"name": "Product reviews"');
+  });
+
   it('does not render the full review widget from the body embed', () => {
     const embed = source('blocks/review-embed.liquid');
     expect(embed).not.toMatch(/review-widget|data-review-form|Write a review/);

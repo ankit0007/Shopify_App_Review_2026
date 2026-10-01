@@ -18,7 +18,7 @@ export default function Docs() {
         <h2>Installation</h2>
         <p>Install the app on a Shopify store and approve <code>read_products</code>, <code>read_orders</code>, and <code>read_customers</code>. Open it from the Shopify admin. The first open creates the shop record used by the app.</p>
         <h2 id="setup">Setup</h2>
-        <p>Use Settings for the storefront button, the Reviews tab, automatic emails, the email trigger, the delay, and the primary color. Automatic emails and the write-review button stay off until you enable them. The Reviews tab is on unless you turn it off.</p>
+        <p>Use Settings for the Reviews button, automatic emails, the email trigger, the delay, and the primary color. Automatic emails and the write-review button stay off until you enable them. The Reviews button also requires the Product Reviews app embed to be enabled in the theme editor.</p>
         <p>Review emails require SMTP to be configured for the app. Until it is, Settings states that SMTP is not configured.</p>
         <h2>Configuration</h2>
         <ul>
@@ -34,13 +34,14 @@ export default function Docs() {
         <h2 id="storefront-display">Storefront display</h2>
         <p>Add these theme app blocks in the theme editor:</p>
         <ul>
+          <li>Product Reviews, the app embed for the floating Reviews button</li>
+          <li>Product reviews, the product-page review block</li>
           <li>Product rating</li>
-          <li>Product reviews</li>
           <li>Product ratings</li>
-          <li>Customer reviews embed</li>
         </ul>
+        <p>Enable the Reviews button from Online Store → Themes → Customize → App embeds → Product Reviews, then save the theme. The button stays hidden if that embed is off, or if the Reviews button setting in the app is off. Position and orientation are configured in the app.</p>
         <p>The Product reviews block includes settings for the heading, star colors, how many reviews to show, sort order, rating breakdown, customer name, date, and verified badge. Its “Show review form” setting must stay enabled if the write-review button should appear, and the app setting for that button must also be on.</p>
-        <p>The storefront loads a short first page of reviews and then Load more. The Reviews tab, when enabled, lists reviews for the whole shop. The shop’s all-reviews page is <code>/apps/shopify-review/reviews</code>.</p>
+        <p>The storefront loads a short first page of reviews and then Load more. The shop’s all-reviews page is <code>/apps/shopify-review/reviews</code>.</p>
         <h2 id="troubleshooting">Troubleshooting</h2>
         <ul>
           <li>Pending, disapproved, hidden, and deleted reviews are not part of the public approved list.</li>

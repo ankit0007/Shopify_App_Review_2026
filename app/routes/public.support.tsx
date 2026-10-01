@@ -23,7 +23,7 @@ const helpSections = [
   },
   {
     title: 'Review Display',
-    text: 'Add the Product Reviews theme blocks in Shopify’s theme editor to display ratings, review sections, and the store-wide Reviews tab.',
+    text: 'Enable the Product Reviews app embed for the Reviews button, and add the Product reviews block to a product template.',
     href: '/docs#storefront-display',
     label: 'Display documentation',
   },
@@ -35,7 +35,7 @@ const helpSections = [
   },
   {
     title: 'App Settings',
-    text: 'Configure the storefront button, Reviews tab, automatic review requests, trigger, delay, and primary color in Settings.',
+    text: 'Configure the Reviews button, automatic review requests, trigger, delay, and primary color in Settings.',
     href: '/docs#setup',
     label: 'Settings documentation',
   },
@@ -84,7 +84,7 @@ export default function Support() {
           <p>Open Reviews inside the app. You can approve, disapprove, hide, feature, delete, or add reviews, and manage the verified-buyer control. See the <a href="/docs#review-management">review management guide</a>.</p>
 
           <h3>How do I configure review settings?</h3>
-          <p>Open Settings in the authenticated app. There you can configure the storefront button, Reviews tab, automatic review requests, trigger, delay, and primary color.</p>
+          <p>Open Settings in the authenticated app. There you can configure the Reviews button, automatic review requests, trigger, delay, and primary color. The button also has to be enabled under App embeds.</p>
 
           <h3>How do I contact support?</h3>
           <p>Send an email to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. The app does not currently provide a public support form, so no support message is stored by this page.</p>

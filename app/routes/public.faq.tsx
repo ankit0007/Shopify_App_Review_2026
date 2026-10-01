@@ -18,9 +18,9 @@ export default function Faq() {
         <h2>How do I install the app?</h2>
         <p>Install Product Reviews on the Shopify store and approve the requested access to products, orders, and customers. Then open Product Reviews from the Shopify admin Apps list.</p>
         <h2>How do I configure the app?</h2>
-        <p>Open Settings. You can show or hide the storefront “Write a review” button, show or hide the Reviews tab, turn automatic review-request emails on or off, choose whether those emails start after fulfillment or after payment, choose a delay from 2 to 10 days, and set a primary color. Save settings when you are done. For a new shop, the write-review button and automatic emails are off, and the Reviews tab is on.</p>
+        <p>Open Settings. You can show or hide the storefront “Write a review” button, show or hide the Reviews button, turn automatic review-request emails on or off, choose whether those emails start after fulfillment or after payment, choose a delay from 2 to 10 days, and set a primary color. Save settings when you are done. For a new shop, the write-review button and automatic emails are off. The Reviews button setting starts on, but the button is not shown until you enable the Product Reviews app embed.</p>
         <h2>How do I display product reviews?</h2>
-        <p>In the theme editor, add the Product Reviews theme blocks you need. The blocks are named Product rating, Product reviews, Product ratings, and Customer reviews embed. Approved reviews can also appear in the Reviews tab when that setting is on. The all-reviews page is served through the app proxy path <code>/apps/shopify-review/reviews</code>.</p>
+        <p>In the theme editor, enable the Product Reviews app embed for the floating Reviews button, and add the Product reviews block to a product template. Other blocks are Product rating and Product ratings. The button stays hidden when the app embed is off or when the Reviews button setting is off. The all-reviews page is served through the app proxy path <code>/apps/shopify-review/reviews</code>.</p>
         <h2>How are reviews collected?</h2>
         <ul>
           <li>From the storefront form, when the write-review button is enabled. Those reviews stay pending until a merchant approves them.</li>

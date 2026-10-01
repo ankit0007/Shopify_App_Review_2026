@@ -26,7 +26,7 @@ export default function Tutorial() {
         <p>Open Settings and choose Save settings after any change.</p>
         <ul>
           <li>Show “Write a review” button. Off until you turn it on. Customers can still review from a review-request email while it is off.</li>
-          <li>Show the Reviews tab on every page. On by default. It opens a popup of store reviews.</li>
+          <li>Reviews button. On in the app by default, and still hidden until the Product Reviews app embed is enabled in the theme editor.</li>
           <li>Automatic review-request emails. Off until you turn them on.</li>
           <li>When automatic emails are on, choose “The order is fulfilled” or “The order is paid”, then a wait of 2 to 10 days.</li>
           <li>Primary color: a six-digit hex color.</li>
@@ -45,10 +45,10 @@ export default function Tutorial() {
         <ul>
           <li>Product rating, for a rating on a product section.</li>
           <li>Product reviews, for the review list on a product section. The block can show a rating breakdown, sort, customer name, date, and verified badge.</li>
+          <li>Product Reviews, an app embed for the floating Reviews button. Enable it under App embeds, then save the theme.</li>
           <li>Product ratings, an app embed for ratings across pages.</li>
-          <li>Customer reviews embed, an app embed for the review content.</li>
         </ul>
-        <p>The product review list loads the first reviews and then offers Load more. The store-wide Reviews tab is controlled by the Settings checkbox. The public all-reviews address on the shop is <code>/apps/shopify-review/reviews</code>.</p>
+        <p>The product review list loads the first reviews and then offers Load more. The floating Reviews button appears only when the Product Reviews app embed is enabled and the Reviews button setting in the app is on. Position and orientation are saved in Settings. The public all-reviews address on the shop is <code>/apps/shopify-review/reviews</code>.</p>
         <h2>6. Troubleshooting</h2>
         <ul>
           <li>A review is missing on the product page: confirm its status is Approved.</li>

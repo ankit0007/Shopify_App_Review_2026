@@ -1,0 +1,15 @@
+<div data-all-reviews-tab data-shop="{{ shop.permanent_domain | escape }}" hidden></div>
+<script src="{{ 'all-reviews-tab.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Product Reviews",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Shows the storefront Reviews button. Position, orientation, and offsets are saved in the Product Reviews app. The button stays hidden when that app setting is off."
+    }
+  ]
+}
+{% endschema %}

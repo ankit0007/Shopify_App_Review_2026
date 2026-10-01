@@ -29,7 +29,7 @@ export default function Index() {
           <li>Stores product reviews and shows approved reviews on the storefront.</li>
           <li>Lets a merchant approve, disapprove, hide, feature, delete, or add a review.</li>
           <li>Can send one review-request email for an order after fulfillment or after payment. Automatic emails are off until the merchant turns them on.</li>
-          <li>Adds theme blocks for a product rating, a product review section, and a store-wide Reviews tab.</li>
+          <li>Adds a Product Reviews app embed for the Reviews button and a Product reviews block for the product page.</li>
         </ul>
         <div className="pr-actions">
           <a href="/tutorial">Read the tutorial</a>
