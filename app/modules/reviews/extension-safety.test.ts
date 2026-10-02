@@ -8,12 +8,32 @@ function source(path: string) {
 }
 
 describe('storefront widget safety', () => {
+  it('keeps the review widget script under the theme app extension limit', () => {
+    const asset = source('assets/review-widgets.js');
+    expect(asset.length).toBeLessThan(10_000);
+    expect(asset).toContain('shopify-product-reviews-');
+    expect(asset).toContain('Rated ');
+  });
+
   it('loads the floating Reviews button only from the Product Reviews app embed', () => {
     const button = source('blocks/reviews-button.liquid');
     const ratingEmbed = source('blocks/rating-embed.liquid');
     expect(button).toContain('"name": "Product Reviews"');
     expect(button).toContain('"target": "body"');
+    expect(button).toContain('"stylesheet": "review-widgets.css"');
+    expect(button).toContain('pr-reviews-tab-host');
     expect(button).toContain('all-reviews-tab.js');
+    const css = source('assets/review-widgets.css');
+    expect(css).toContain('.pr-reviews-tab {');
+    expect(css).toContain('width: max-content !important;');
+    expect(css).toContain('background: transparent !important;');
+    expect(css).not.toMatch(/\.sr-tab\s*\{/);
+    expect(css).toMatch(/\.sr-modal:not\(\[hidden\]\)\s*\{[^}]*max-width:\s*none !important;/);
+    const script = readFileSync('app/storefront/all-reviews-tab.js', 'utf8');
+    expect(script).toContain('data-pr-reviews-tab');
+    expect(script).toContain("pin('width', 'max-content')");
+    expect(script).toContain('showAllReviewsTab === false');
+    expect(script).not.toContain("el('button', 'sr-tab')");
     expect(ratingEmbed).not.toContain('all-reviews-tab');
     expect(source('blocks/review-embed.liquid')).not.toContain('all-reviews-tab');
     expect(source('blocks/review-summary.liquid')).toContain('"name": "Product reviews"');

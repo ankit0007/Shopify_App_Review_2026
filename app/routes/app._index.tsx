@@ -46,7 +46,7 @@ function StorefrontSetup() {
   const embed = shop && apiKey ? themeEditorUrl(shop, apiKey, `context=apps&activateAppId=${encodeURIComponent(`${apiKey}/reviews-button`)}`) : '';
   const block = shop && apiKey ? themeEditorUrl(shop, apiKey, `template=product&addAppBlockId=${encodeURIComponent(`${apiKey}/review-summary`)}&target=newAppsSection`) : '';
   return (
-    <section className="mt-4 max-w-3xl rounded-xl border border-[#e3e3e3] bg-white p-4">
+    <section className="mt-4 w-full min-w-0 rounded-xl border border-[#e3e3e3] bg-white p-4">
       <h2 className="text-base font-semibold">Add Product Reviews to your theme</h2>
       <p className="mt-2 text-sm text-[#6d7175]">The Reviews button stays off until you enable the app embed. It also stays off when the Reviews button setting in this app is turned off.</p>
       <h3 className="mt-4 text-sm font-semibold">Floating Reviews button</h3>

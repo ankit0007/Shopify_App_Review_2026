@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import {useFetcher} from 'react-router';
+import {ToggleSwitch} from './admin/ui';
 import type {AdminProductChoice} from '../modules/reviews/admin-review';
 
 type SearchData = {products?: AdminProductChoice[]; error?: string};
@@ -37,6 +38,7 @@ export function AddReviewDialog({open, onClose}: {open: boolean; onClose: (revie
   const [displayName, setDisplayName] = useState('');
   const [status, setStatus] = useState<'APPROVED' | 'PENDING'>('APPROVED');
   const [featured, setFeatured] = useState(false);
+  const [verifiedPurchase, setVerifiedPurchase] = useState(false);
   const reported = useRef<CreateData | null>(null);
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export function AddReviewDialog({open, onClose}: {open: boolean; onClose: (revie
     setDisplayName('');
     setStatus('APPROVED');
     setFeatured(false);
+    setVerifiedPurchase(false);
     onClose(review);
   }, [create.data, onClose]);
 
@@ -202,15 +205,15 @@ export function AddReviewDialog({open, onClose}: {open: boolean; onClose: (revie
         </select>
         <p className="add-review__hint">{status === 'APPROVED' ? 'Approved reviews are included in the public rating immediately.' : 'Pending reviews stay hidden until they are approved.'}</p>
 
-        <label className="add-review__check">
-          <input type="checkbox" name="featured" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
-          Featured
-        </label>
-        <label className="add-review__check">
-          <input type="checkbox" name="verifiedPurchase" value="true" />
-          Verified purchase
-        </label>
-        <p className="add-review__verified">Leave this unchecked unless you know this customer bought the product. It is off by default.</p>
+        <ToggleSwitch label="Featured" name="featured" checked={featured} onChange={setFeatured} />
+        <ToggleSwitch
+          label="Verified purchase"
+          name="verifiedPurchase"
+          value="true"
+          checked={verifiedPurchase}
+          onChange={setVerifiedPurchase}
+          description="Leave this off unless you know this customer bought the product. It is off by default."
+        />
 
         <footer className="add-review__footer">
           <button type="button" className="add-review__secondary" onClick={() => onClose()}>Cancel</button>

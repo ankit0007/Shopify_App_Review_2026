@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {data, Form, useLoaderData, useNavigation, useSearchParams} from 'react-router';
 import {AdminListPagination} from '../components/admin-list-pagination';
 import {AddReviewDialog} from '../components/add-review-dialog';
-import {AdminShell, Badge, Button, EmbeddedFields, EmptyState, RatingStars, Skeleton, statusTone} from '../components/admin/ui';
+import {AdminShell, Badge, Button, EmbeddedFields, EmptyState, RatingStars, Skeleton, ToggleSwitch, statusTone} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {config} from '../config.server';
 import {db} from '../db.server';
@@ -225,15 +225,11 @@ export default function Reviews() {
               <Form method="post" className="mt-3">
                 <input type="hidden" name="reviewId" value={review.id} />
                 <input type="hidden" name="decision" value={review.verifiedPurchase ? 'UNVERIFY' : 'VERIFY'} />
-                <label className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={review.verifiedPurchase}
-                    aria-label={`Verified buyer for ${review.displayName || 'this review'}`}
-                    onChange={(event) => event.currentTarget.form?.requestSubmit()}
-                  />
-                  Verified buyer
-                </label>
+                <ToggleSwitch
+                  label={`Verified buyer for ${review.displayName || 'this review'}`}
+                  checked={review.verifiedPurchase}
+                  onChange={(_checked, event) => event.currentTarget.form?.requestSubmit()}
+                />
               </Form>
               {review.status === 'PENDING' ? (
                 <Form method="post" className="mt-3 flex flex-wrap gap-2">

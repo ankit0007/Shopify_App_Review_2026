@@ -304,6 +304,16 @@
     document.head.append(script);
   }
 
+  document.addEventListener('click', (event) => {
+    const control = event.target instanceof Element ? event.target.closest('.sr-rating__link') : null;
+    if (!control || (control.getAttribute('aria-label') || '').startsWith('Rated ')) return;
+    const productId = control.closest('.shopify-review-rating')?.getAttribute('data-product-id');
+    const root = productId ? document.getElementById(`shopify-product-reviews-${productId}`) : null;
+    if (!root || root.dataset.showForm === 'false') return;
+    event.preventDefault();
+    openForm(root, control);
+  });
+
   document.querySelectorAll('.shopify-review-widget').forEach((node) => {
     if (widgetsToRemove([...document.querySelectorAll('.shopify-review-widget')]).includes(node)) {
       node.remove();

@@ -1,5 +1,5 @@
 import {NavLink, useSearchParams} from 'react-router';
-import {useId, type ReactNode} from 'react';
+import {useId, type ChangeEvent, type ReactNode} from 'react';
 import {embeddedFields, withEmbeddedQuery} from '../../lib/embedded-query';
 import {formatAverage, starFills} from '../../modules/reviews/rating';
 
@@ -42,31 +42,77 @@ export function AdminShell({
 }) {
   const href = useAdminHref();
   return (
-    <div className="min-h-screen bg-[#f6f6f7] text-[#202223]">
-      <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-screen w-full overflow-x-clip bg-[#f6f6f7] text-[#202223]">
+      <div className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-[#008060]">Product Reviews</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
-            {subtitle ? <p className="mt-1 max-w-2xl text-sm text-[#6d7175]">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-1 max-w-3xl text-sm text-[#6d7175]">{subtitle}</p> : null}
           </div>
-          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </header>
-        <nav aria-label="Product Reviews" className="mt-5 flex gap-1 overflow-x-auto border-b border-[#e3e3e3]">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={href(item.to)}
-              end={'end' in item ? item.end : undefined}
-              className={({isActive}) => `inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold ${focus} ${isActive ? 'border-[#008060] text-[#008060]' : 'border-transparent text-[#6d7175] hover:text-[#202223]'}`}
-            >
-              <NavIcon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+        <nav aria-label="Product Reviews" className="mt-5 overflow-x-auto border-b border-[#e1e3e5]">
+          <div className="flex w-max min-w-full gap-1">
+            {nav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={href(item.to)}
+                end={'end' in item ? item.end : undefined}
+                className={({isActive}) => `inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${focus} ${isActive ? 'border-[#008060] bg-[#f1f8f5] text-[#008060]' : 'border-transparent text-[#6d7175] hover:bg-[#f1f2f3] hover:text-[#202223]'}`}
+              >
+                <NavIcon name={item.icon} />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         </nav>
-        <div className="mt-5">{children}</div>
+        <div className="mt-5 min-w-0">{children}</div>
       </div>
+    </div>
+  );
+}
+
+export function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+  description,
+  name,
+  value,
+  disabled,
+}: {
+  checked: boolean;
+  onChange?: (checked: boolean, event: ChangeEvent<HTMLInputElement>) => void;
+  label: string;
+  description?: ReactNode;
+  name?: string;
+  value?: string;
+  disabled?: boolean;
+}) {
+  const labelId = useId();
+  return (
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0 flex-1">
+        <p id={labelId} className="text-sm font-semibold text-[#202223]">{label}</p>
+        {description ? <div className="mt-1 text-sm font-normal text-[#6d7175]">{description}</div> : null}
+      </div>
+      <label className={`inline-flex shrink-0 items-center gap-2 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+        <span className="w-7 text-right text-xs font-semibold text-[#202223]" aria-hidden="true">{checked ? 'On' : 'Off'}</span>
+        <input
+          className="pr-switch-input"
+          type="checkbox"
+          role="switch"
+          name={name}
+          value={value}
+          checked={checked}
+          disabled={disabled}
+          aria-checked={checked}
+          aria-labelledby={labelId}
+          onChange={(event) => onChange?.(event.currentTarget.checked, event)}
+        />
+        <span className="pr-switch-track" aria-hidden="true" />
+      </label>
     </div>
   );
 }

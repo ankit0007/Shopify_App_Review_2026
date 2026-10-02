@@ -439,29 +439,70 @@
   to { background-position: -200% 0; }
 }
 
-.sr-tab {
-  position: fixed;
-  z-index: 2147483000;
-  right: 0;
-  top: 46%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 12px 0 0 12px;
-  background: #111;
-  color: #fff;
-  font: 700 14px/1 Arial, Helvetica, sans-serif;
-  letter-spacing: 0.04em;
-  padding: 14px 10px;
-  cursor: pointer;
-  writing-mode: vertical-rl;
-  transform: translateY(-50%);
+.pr-reviews-tab-host {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  overflow: hidden !important;
 }
 
-.sr-tab svg {
-  width: 16px;
-  height: 16px;
+.pr-reviews-tab {
+  position: fixed !important;
+  z-index: 9999 !important;
+  display: block !important;
+  width: max-content !important;
+  height: max-content !important;
+  max-width: max-content !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  writing-mode: horizontal-tb !important;
+}
+
+.pr-reviews-tab__face {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  width: max-content !important;
+  height: max-content !important;
+  max-width: max-content !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 12px 0 0 12px;
+  background: #111 !important;
+  color: #fff !important;
+  font: 700 14px/1 Arial, Helvetica, sans-serif !important;
+  letter-spacing: 0.04em;
+  padding: 14px 10px !important;
+  cursor: pointer;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+}
+
+.pr-reviews-tab[data-orientation="horizontal"] .pr-reviews-tab__face {
+  flex-direction: row;
+  writing-mode: horizontal-tb;
+  border-radius: 12px;
+}
+
+.pr-reviews-tab[data-orientation="vertical"] .pr-reviews-tab__face {
+  flex-direction: column;
+  writing-mode: vertical-rl;
+}
+
+.pr-reviews-tab__face svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 auto;
   fill: #f5b301;
   writing-mode: horizontal-tb;
 }
@@ -469,7 +510,7 @@
 .sr-tab-modal:not([hidden]) {
   position: fixed;
   inset: 0;
-  z-index: 2147483001;
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 24px 16px;
@@ -605,11 +646,16 @@
 }
 
 .sr-modal:not([hidden]) {
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  inset: 0 !important;
   z-index: 2147483000;
   display: grid;
   place-items: center;
+  width: auto !important;
+  max-width: none !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0 !important;
   padding: 24px 16px;
   background: rgba(17, 17, 17, 0.55);
   overflow: auto;

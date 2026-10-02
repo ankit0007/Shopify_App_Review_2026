@@ -1,10 +1,9 @@
 (() => {
-  if (window.__srAllReviews) return;
-  window.__srAllReviews = true;
-  const PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
   const host = document.querySelector('[data-all-reviews-tab]');
   const shop = host?.dataset.shop || window.Shopify?.shop || '';
-  if (!shop) return;
+  if (!shop || host?.dataset.prReady === '1' || document.querySelector('[data-pr-reviews-tab]')) return;
+  if (host) host.dataset.prReady = '1';
+  const PATH = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -26,44 +25,67 @@
     return row;
   }
 
-  const tab = el('button', 'sr-tab');
+  const shell = el('div', 'pr-reviews-tab');
+  shell.setAttribute('data-pr-reviews-tab', '');
+  const tab = el('button', 'pr-reviews-tab__face');
   tab.type = 'button';
   tab.setAttribute('aria-haspopup', 'dialog');
   tab.setAttribute('aria-expanded', 'false');
   tab.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${PATH}"/></svg><span>Reviews</span>`;
+  shell.append(tab);
+
+  function clamp(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.min(500, Math.max(0, parsed)) : fallback;
+  }
 
   function applyButtonSettings(data) {
-    const position = String(data.reviewsButtonPosition || 'middle-right');
-    const [row, column] = position.split('-');
-    const horizontal = Math.min(500, Math.max(0, Number(data.reviewsButtonHorizontalOffset) || 0));
-    const vertical = Math.min(500, Math.max(0, Number(data.reviewsButtonVerticalOffset) || 50));
+    const position = String(data?.reviewsButtonPosition || 'middle-right');
+    const parts = position.split('-');
+    const row = ['top', 'middle', 'bottom'].includes(parts[0]) ? parts[0] : 'middle';
+    const column = ['left', 'center', 'right'].includes(parts[1]) ? parts[1] : 'right';
+    const horizontal = clamp(data?.reviewsButtonHorizontalOffset, 0);
+    const vertical = clamp(data?.reviewsButtonVerticalOffset, 50);
     const transforms = [];
-    tab.style.top = '';
-    tab.style.right = '';
-    tab.style.bottom = '';
-    tab.style.left = '';
-    tab.style.marginTop = '';
-    tab.style.marginLeft = '';
-    tab.style.transform = '';
+    const pin = (name, value) => shell.style.setProperty(name, value, 'important');
+    ['top', 'right', 'bottom', 'left'].forEach((edge) => pin(edge, 'auto'));
+    pin('position', 'fixed');
+    pin('display', 'block');
+    pin('width', 'max-content');
+    pin('height', 'max-content');
+    pin('max-width', 'max-content');
+    pin('margin-top', '0px');
+    pin('margin-left', '0px');
+    pin('background', 'transparent');
+    pin('padding', '0px');
     if (row === 'middle') {
-      tab.style.top = '50%';
-      tab.style.marginTop = `${vertical - 50}px`;
+      pin('top', '50%');
+      pin('margin-top', `${vertical - 50}px`);
       transforms.push('translateY(-50%)');
-    } else if (row === 'top') {
-      tab.style.top = `${vertical}px`;
-    } else {
-      tab.style.bottom = `${vertical}px`;
-    }
-    if (column === 'left') tab.style.left = `${horizontal}px`;
+    } else if (row === 'top') pin('top', `${vertical}px`);
+    else pin('bottom', `${vertical}px`);
+    if (column === 'left') pin('left', `${horizontal}px`);
     else if (column === 'center') {
-      tab.style.left = '50%';
-      tab.style.marginLeft = `${horizontal}px`;
+      pin('left', '50%');
+      pin('margin-left', `${horizontal}px`);
       transforms.push('translateX(-50%)');
-    } else tab.style.right = `${horizontal}px`;
-    tab.style.transform = transforms.join(' ') || 'none';
-    tab.style.writingMode = data.reviewsButtonOrientation === 'horizontal' ? 'horizontal-tb' : 'vertical-rl';
-    tab.style.flexDirection = data.reviewsButtonOrientation === 'horizontal' ? 'row' : 'column';
-    tab.style.borderRadius = data.reviewsButtonOrientation === 'horizontal' ? '12px' : '12px 0 0 12px';
+    } else pin('right', `${horizontal}px`);
+    pin('transform', transforms.join(' ') || 'none');
+    tab.style.setProperty('width', 'max-content', 'important');
+    tab.style.setProperty('height', 'max-content', 'important');
+    tab.style.setProperty('max-width', 'max-content', 'important');
+    tab.style.setProperty('background', '#111', 'important');
+    shell.dataset.orientation = data?.reviewsButtonOrientation === 'horizontal' ? 'horizontal' : 'vertical';
+  }
+
+  function mount(data) {
+    if (data && data.showAllReviewsTab === false) {
+      shell.remove();
+      modal.remove();
+      return;
+    }
+    applyButtonSettings(data);
+    if (!shell.isConnected) document.body.append(shell, modal);
   }
   const modal = el('div', 'sr-tab-modal');
   modal.hidden = true;
@@ -138,12 +160,10 @@
       if (!payload?.success) throw new Error('unavailable');
       const data = payload.data;
       if (data.showAllReviewsTab === false) {
-        tab.remove();
-        modal.remove();
+        mount(data);
         return;
       }
-      applyButtonSettings(data);
-      if (!tab.isConnected) document.body.append(tab, modal);
+      mount(data);
       const count = Number(data.totalReviews) || 0;
       const average = count && Number.isFinite(Number(data.averageRating)) ? Number(data.averageRating) : null;
       summary.replaceChildren();
@@ -160,6 +180,7 @@
       status.hidden = grid.children.length > 0;
       status.textContent = grid.children.length ? '' : 'No reviews yet.';
     } catch {
+      mount(null);
       status.hidden = false;
       status.textContent = 'Reviews could not be loaded. Please try again.';
     } finally {

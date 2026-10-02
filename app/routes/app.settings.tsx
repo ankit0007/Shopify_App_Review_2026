@@ -1,12 +1,12 @@
 import {Form, useActionData, useLoaderData, useNavigation} from 'react-router';
 import {useRef, useState} from 'react';
-import {AdminShell} from '../components/admin/ui';
+import {AdminShell, ToggleSwitch} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {db} from '../db.server';
 import {isSameOrigin} from '../lib/csrf.server';
 import {loadEnabledSmtp} from '../modules/email/delivery.server';
 import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewEmailTrigger, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
-import {REVIEW_BUTTON_ORIENTATIONS, REVIEW_BUTTON_POSITIONS, reviewButtonOffset, type ReviewButtonOrientation, type ReviewButtonPosition, validReviewButtonOrientation, validReviewButtonPosition} from '../modules/reviews/reviews-button';
+import {REVIEW_BUTTON_ORIENTATIONS, REVIEW_BUTTON_POSITIONS, reviewButtonOffset, reviewButtonPreviewStyle, type ReviewButtonOrientation, type ReviewButtonPosition, validReviewButtonOrientation, validReviewButtonPosition} from '../modules/reviews/reviews-button';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
@@ -96,13 +96,22 @@ export default function Settings() {
   const settings = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const navigation = useNavigation();
+  const saving = navigation.state === 'submitting';
   return (
-    <AdminShell title="Settings" subtitle="Control review requests, the storefront button, and appearance.">
+    <AdminShell
+      title="Settings"
+      subtitle="Control the storefront Reviews button, review display, review requests, and appearance."
+      actions={(
+        <button form="settings-form" type="submit" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#008060] px-4 text-sm font-semibold text-white hover:bg-[#006e52] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008060] disabled:opacity-60" disabled={saving}>
+          {saving ? 'Saving…' : 'Save settings'}
+        </button>
+      )}
+    >
       <SettingsForm
         key={`${settings.showWriteReviewButton}:${settings.reviewsButtonEnabled}:${settings.reviewsButtonPosition}:${settings.reviewsButtonHorizontalOffset}:${settings.reviewsButtonVerticalOffset}:${settings.reviewsButtonOrientation}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
         settings={settings}
         result={result}
-        saving={navigation.state === 'submitting'}
+        saving={saving}
       />
     </AdminShell>
   );
@@ -129,7 +138,7 @@ function SettingsForm({
   const [requestDelayDays, setRequestDelayDays] = useState(settings.requestDelayDays);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   return (
-    <Form method="post" ref={formRef} className="grid max-w-3xl gap-4">
+    <Form id="settings-form" method="post" ref={formRef} className="grid w-full min-w-0 gap-5">
       <input type="hidden" name="showWriteReviewButton" value={showWriteReviewButton ? 'true' : 'false'} />
       <input type="hidden" name="reviewsButtonEnabled" value={reviewsButtonEnabled ? 'true' : 'false'} />
       <input type="hidden" name="reviewsButtonPosition" value={reviewsButtonPosition} />
@@ -145,24 +154,17 @@ function SettingsForm({
       {!settings.emailReady ? (
         <p className="rounded-lg bg-[#fff5ea] px-3 py-2 text-sm text-[#8a6116]" role="alert">SMTP is not configured. Configure SMTP before sending review-request emails.</p>
       ) : null}
-      <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Reviews Button</h2>
-            <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button and its position. The button is shown only after Product Reviews is enabled under Online Store → Themes → Customize → App embeds.</p>
-          </div>
-          <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold">
-            <span>Enable Reviews Button</span>
-            <input
-              type="checkbox"
-              className="peer sr-only"
-              checked={reviewsButtonEnabled}
-              onChange={(event) => setReviewsButtonEnabled(event.currentTarget.checked)}
-            />
-            <span className="relative h-6 w-11 rounded-full bg-[#c9cccf] transition peer-checked:bg-[#008060] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#008060] after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5" aria-hidden="true" />
-          </label>
+      <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
+        <h2 className="text-base font-semibold">Reviews Button</h2>
+        <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button and its position.</p>
+        <div className="mt-4">
+          <ToggleSwitch
+            label="Enable Reviews Button"
+            description="The button is shown only after Product Reviews is enabled under Online Store → Themes → Customize → App embeds."
+            checked={reviewsButtonEnabled}
+            onChange={setReviewsButtonEnabled}
+          />
         </div>
-        <p className="mt-3 text-sm text-[#6d7175]">Customers can still submit reviews from a review-request email when this button is hidden.</p>
         {reviewsButtonEnabled ? (
           <ReviewsButtonEditor
             position={reviewsButtonPosition}
@@ -174,48 +176,65 @@ function SettingsForm({
             orientation={reviewsButtonOrientation}
             setOrientation={setReviewsButtonOrientation}
           />
-        ) : null}
-        <label className="mt-3 flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-1" checked={showWriteReviewButton} onChange={(event) => setShowWriteReviewButton(event.currentTarget.checked)} />
-          <span>Show &quot;Write a review&quot; button. When this is off, the product page does not show a button that opens the review form.</span>
-        </label>
+        ) : <p className="mt-4 text-sm text-[#6d7175]">Turn the Reviews button on to choose its position, offsets, and orientation.</p>}
       </section>
-      <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
-        <h2 className="text-base font-semibold">Review requests</h2>
-        <p className="mt-1 text-sm text-[#6d7175]">One email covers every product in the order. The customer reviews them together on one page.</p>
-        <label className="mt-3 flex items-start gap-2 text-sm">
-          <input type="checkbox" className="mt-1" checked={automaticRequests} onChange={(event) => setAutomaticRequests(event.currentTarget.checked)} />
-          <span>Automatic review-request emails.</span>
-        </label>
-        {automaticRequests ? (
-          <div className="mt-3 grid gap-3">
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Review display</h2>
+          <p className="mt-1 text-sm text-[#6d7175]">This control is separate from the store-wide Reviews button.</p>
+          <div className="mt-4">
+            <ToggleSwitch
+              label={'Show "Write a review" button'}
+              description="When this is off, that button stays hidden after a product has reviews. Be the first to review still opens the form when a product has no reviews. Customers can still submit reviews from a review-request email when this button is hidden."
+              checked={showWriteReviewButton}
+              onChange={setShowWriteReviewButton}
+            />
+          </div>
+        </section>
+        <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Review requests</h2>
+          <p className="mt-1 text-sm text-[#6d7175]">One email covers every product in the order. The customer reviews them together on one page.</p>
+          <div className="mt-4">
+            <ToggleSwitch
+              label="Automatic review-request emails"
+              checked={automaticRequests}
+              onChange={setAutomaticRequests}
+            />
+          </div>
+          <div className="mt-4 grid gap-3">
             <label className="grid gap-1 text-sm font-semibold">
               Send the review email when
-              <select className="min-h-10 rounded-lg border border-[#c9cccf] px-2 font-normal" value={reviewRequestTrigger} onChange={(event) => setReviewRequestTrigger(event.currentTarget.value === 'PAID' ? 'PAID' : 'FULFILLMENT')}>
+              <select className="min-h-10 w-full rounded-lg border border-[#c9cccf] bg-white px-2 font-normal" value={reviewRequestTrigger} onChange={(event) => setReviewRequestTrigger(event.currentTarget.value === 'PAID' ? 'PAID' : 'FULFILLMENT')}>
                 <option value="FULFILLMENT">The order is fulfilled</option>
                 <option value="PAID">The order is paid</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm font-semibold">
               {reviewRequestTrigger === 'PAID' ? 'Wait this many days after the order is paid' : 'Wait this many days after fulfillment'}
-              <select className="min-h-10 rounded-lg border border-[#c9cccf] px-2 font-normal" value={requestDelayDays} onChange={(event) => setRequestDelayDays(event.currentTarget.value)}>
+              <select className="min-h-10 w-full rounded-lg border border-[#c9cccf] bg-white px-2 font-normal" value={requestDelayDays} onChange={(event) => setRequestDelayDays(event.currentTarget.value)}>
                 {REVIEW_DELAY_DAYS.map((days) => <option key={days} value={days}>{days} days</option>)}
               </select>
             </label>
           </div>
-        ) : <p className="mt-3 text-sm text-[#6d7175]">Turn automatic emails on to choose whether they start after fulfillment or after payment.</p>}
-      </section>
-      <section className="rounded-xl border border-[#e3e3e3] bg-white p-4">
-        <h2 className="text-base font-semibold">Appearance</h2>
-        <label className="mt-3 grid gap-1 text-sm font-semibold">
-          Primary color
-          <input className="min-h-10 rounded-lg border border-[#c9cccf] px-3 font-normal" value={primaryColor} onChange={(event) => setPrimaryColor(event.currentTarget.value)} autoComplete="off" />
-        </label>
-        <p className="mt-1 text-sm text-[#6d7175]">Six-digit hex color, for example #2563eb.</p>
-      </section>
-      <button type="submit" className="min-h-10 w-fit rounded-lg bg-[#008060] px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>
-        {saving ? 'Saving…' : 'Save settings'}
-      </button>
+          <p className="mt-3 text-sm text-[#6d7175]">{automaticRequests ? 'These choices are used for the next automatic email.' : 'These choices are saved now and used when automatic emails are turned on.'}</p>
+        </section>
+        <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5 lg:col-span-2">
+          <h2 className="text-base font-semibold">Appearance</h2>
+          <label className="mt-4 grid max-w-md gap-1 text-sm font-semibold">
+            Primary color
+            <span className="flex min-w-0 items-center gap-3 font-normal">
+              <input type="color" value={/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : '#2563eb'} onChange={(event) => setPrimaryColor(event.currentTarget.value)} className="h-10 w-14 cursor-pointer rounded-lg border border-[#c9cccf] bg-white p-1" aria-label="Primary color picker" />
+              <input className="min-h-10 min-w-0 flex-1 rounded-lg border border-[#c9cccf] px-3" value={primaryColor} onChange={(event) => setPrimaryColor(event.currentTarget.value)} autoComplete="off" aria-label="Primary color" />
+            </span>
+          </label>
+          <p className="mt-2 text-sm text-[#6d7175]">Six-digit hex color, for example #2563eb.</p>
+        </section>
+      </div>
+      <div className="flex justify-end">
+        <button type="submit" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#008060] px-4 text-sm font-semibold text-white hover:bg-[#006e52] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008060] disabled:opacity-60" disabled={saving}>
+          {saving ? 'Saving…' : 'Save settings'}
+        </button>
+      </div>
     </Form>
   );
 }
@@ -244,26 +263,15 @@ function ReviewsButtonEditor({
   setOrientation: (value: ReviewButtonOrientation) => void;
 }) {
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
-  const [row, column] = position.split('-') as ['top' | 'middle' | 'bottom', 'left' | 'center' | 'right'];
-  const transform = `${column === 'center' ? 'translateX(-50%)' : ''} ${row === 'middle' ? 'translateY(-50%)' : ''}`.trim() || undefined;
-  const buttonStyle = {
-    position: 'absolute' as const,
-    top: row === 'middle' ? '50%' : row === 'top' ? `${verticalOffset}px` : undefined,
-    bottom: row === 'bottom' ? `${verticalOffset}px` : undefined,
-    left: column === 'center' ? '50%' : column === 'left' ? `${horizontalOffset}px` : undefined,
-    right: column === 'right' ? `${horizontalOffset}px` : undefined,
-    marginTop: row === 'middle' ? `${verticalOffset - 50}px` : undefined,
-    marginLeft: column === 'center' ? `${horizontalOffset}px` : undefined,
-    transform,
-    writingMode: orientation === 'vertical' ? 'vertical-rl' as const : 'horizontal-tb' as const,
-  };
+  const buttonStyle = reviewButtonPreviewStyle(position, horizontalOffset, verticalOffset, orientation);
+  const positionStyle = {...buttonStyle, writingMode: 'horizontal-tb' as const};
   const changeOffset = (axis: 'horizontal' | 'vertical', delta: number) => {
     const current = axis === 'horizontal' ? horizontalOffset : verticalOffset;
     const next = Math.min(500, Math.max(0, current + delta));
     (axis === 'horizontal' ? setHorizontalOffset : setVerticalOffset)(next);
   };
   return (
-    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2">
       <div className="grid gap-4">
         <div>
           <h3 className="text-sm font-semibold">Reviews Button Position</h3>
@@ -337,7 +345,9 @@ function ReviewsButtonEditor({
               <p className="mt-3 text-xs text-[#6d7175]">Product description</p>
             </div>
           </div>
-          <button type="button" className="absolute z-10 rounded-[12px] bg-[#111] px-2.5 py-3 text-xs font-bold tracking-wide text-white transition-all duration-300" style={buttonStyle} aria-label={`Preview Reviews button at ${positionLabel(position)}`}>★ <span className={orientation === 'vertical' ? 'inline-block' : ''}>Reviews</span></button>
+          <span className="pointer-events-none absolute z-10 block h-max w-max max-w-max bg-transparent p-0" style={{...positionStyle, writingMode: 'horizontal-tb'}} aria-hidden="true">
+            <span className={`inline-flex h-max w-max max-w-max items-center gap-1 rounded-[12px] bg-[#111] px-2.5 py-3 text-xs font-bold tracking-wide text-white ${orientation === 'horizontal' ? 'flex-row' : 'flex-col'}`} style={{writingMode: orientation === 'vertical' ? 'vertical-rl' : 'horizontal-tb'}}>★ <span>Reviews</span></span>
+          </span>
           <span className="absolute right-3 top-3 inline-flex items-center gap-1 text-[10px] font-semibold text-[#008060]"><span aria-hidden="true">●</span> Live</span>
         </div>
       </div>

@@ -30,13 +30,13 @@ export default function PlanUsage() {
   const {plan, status, metrics} = useLoaderData<typeof loader>();
   return (
     <AdminShell title="Plan & usage" subtitle={`Current plan: ${plan.name}`}>
-      <section className="max-w-xl rounded-xl border border-[#e3e3e3] bg-white p-4">
+      <section className="w-full min-w-0 rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
         <Badge tone={status === 'active' ? 'success' : 'warning'}>{status}</Badge>
-        <ul className="mt-4 grid gap-2 text-sm">
+        <ul className="mt-4 grid gap-3 text-sm md:grid-cols-3">
           {metrics.map((metric) => (
-            <li key={metric.metric} className="flex justify-between border-b border-[#f1f2f3] py-2">
-              <span>{metric.label}</span>
-              <span className="font-semibold">{metric.used} / {metric.limit}</span>
+            <li key={metric.metric} className="rounded-lg border border-[#e3e3e3] bg-[#f6f6f7] px-4 py-3">
+              <span className="block text-[#6d7175]">{metric.label}</span>
+              <span className="mt-1 block text-base font-semibold">{metric.used} / {metric.limit}</span>
             </li>
           ))}
         </ul>

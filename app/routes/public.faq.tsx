@@ -28,7 +28,7 @@ export default function Faq() {
           <li>From Add review on the Reviews page in the Shopify admin.</li>
         </ul>
         <h2>How are reviews managed?</h2>
-        <p>Open Reviews. You can filter the list, move between pages, and use Approve, Disapprove, Hide, Feature, or Delete on a review. A verified-buyer checkbox is on each review. Add review creates a review for a product in the shop.</p>
+        <p>Open Reviews. You can filter the list, move between pages, and use Approve, Disapprove, Hide, Feature, or Delete on a review. A verified-buyer switch is on each review. Add review creates a review for a product in the shop.</p>
         <h2>How do merchants moderate reviews?</h2>
         <p>Only approved reviews are shown on the storefront. Disapprove, hide, or delete a review to keep it off the store. A review from the storefront form starts as pending. A review from a review-request email starts as approved.</p>
         <h2>What happens when the app is uninstalled?</h2>

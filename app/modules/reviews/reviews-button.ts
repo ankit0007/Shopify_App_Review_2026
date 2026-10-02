@@ -23,6 +23,30 @@ export function validReviewButtonOrientation(value: unknown): value is ReviewBut
   return REVIEW_BUTTON_ORIENTATIONS.includes(value as ReviewButtonOrientation);
 }
 
+export function reviewButtonPreviewStyle(
+  position: ReviewButtonPosition,
+  horizontalOffset: number,
+  verticalOffset: number,
+  orientation: ReviewButtonOrientation,
+) {
+  const [row, column] = position.split('-') as ['top' | 'middle' | 'bottom', 'left' | 'center' | 'right'];
+  const transform = `${column === 'center' ? 'translateX(-50%)' : ''} ${row === 'middle' ? 'translateY(-50%)' : ''}`.trim() || undefined;
+  return {
+    position: 'absolute' as const,
+    top: row === 'middle' ? '50%' : row === 'top' ? `${verticalOffset}px` : undefined,
+    bottom: row === 'bottom' ? `${verticalOffset}px` : undefined,
+    left: column === 'center' ? '50%' : column === 'left' ? `${horizontalOffset}px` : undefined,
+    right: column === 'right' ? `${horizontalOffset}px` : undefined,
+    marginTop: row === 'middle' ? `${verticalOffset - 50}px` : undefined,
+    marginLeft: column === 'center' ? `${horizontalOffset}px` : undefined,
+    transform,
+    width: 'max-content',
+    height: 'max-content',
+    maxWidth: 'max-content',
+    writingMode: orientation === 'vertical' ? 'vertical-rl' as const : 'horizontal-tb' as const,
+  };
+}
+
 export function reviewButtonOffset(value: FormDataEntryValue | null) {
   if (value === null || String(value).trim() === '') return null;
   const parsed = Number(value);

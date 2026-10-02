@@ -9,3 +9,56 @@
   --color-star: #f5b301;
   --color-star-empty: #d9dde3;
 }
+
+.pr-switch-input {
+  position: absolute;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0 !important;
+}
+
+.pr-switch-track {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #8c9196;
+  transition: background-color 150ms ease;
+}
+
+.pr-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+  transition: transform 150ms ease;
+}
+
+.pr-switch-input:checked + .pr-switch-track {
+  background: #008060;
+}
+
+.pr-switch-input:checked + .pr-switch-track::after {
+  transform: translateX(20px);
+}
+
+.pr-switch-input:focus-visible + .pr-switch-track {
+  outline: 2px solid #008060;
+  outline-offset: 2px;
+}
+
+.pr-switch-input:disabled + .pr-switch-track {
+  opacity: 0.55;
+}
