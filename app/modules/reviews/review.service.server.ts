@@ -50,7 +50,7 @@ export async function submitReview(input: {
         title: data.title,
         body: data.body,
         displayName: data.displayName,
-        status: 'APPROVED',
+        status: 'PENDING',
         verifiedPurchase,
         verificationReason: verifiedPurchase ? 'Matched eligible Shopify order item for this shop and customer' : 'No matching eligible Shopify order item',
       },

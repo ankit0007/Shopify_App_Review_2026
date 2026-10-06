@@ -4,7 +4,6 @@ import {invalidateRatingCache, readRatingCache, writeRatingCache} from './rating
 import {histogramBarPercents} from './histogram';
 import {includeInRating, summarizeRatingCounts} from './rating';
 import {
-  adminReviewCreateData,
   adminReviewRequestAllowed,
   canonicalProductId,
   distributionAfterReview,
@@ -17,16 +16,13 @@ import {
 
 const valid = {rating: '5', title: 'Great board', body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', status: 'APPROVED', featured: 'on'};
 
-describe('admin add review', () => {
-  it('opens an Add Review form on the merchant reviews page', () => {
+describe('merchant review creation protection', () => {
+  it('does not expose an Add Review form on the merchant reviews page', () => {
     const page = readFileSync('app/routes/app.reviews.tsx', 'utf8');
-    const dialog = readFileSync('app/components/add-review-dialog.tsx', 'utf8');
-    expect(page).toContain('>Add review<');
-    expect(page).toContain('<AddReviewDialog');
-    expect(dialog).toContain('Search by title, handle, or SKU');
-    expect(dialog).toContain('role="radiogroup"');
-    expect(dialog).toContain('name="verifiedPurchase"');
-    expect(dialog).toContain('off by default');
+    expect(page).not.toContain('AddReviewDialog');
+    expect(page).not.toContain('createAdminReview');
+    expect(page).not.toContain('intent');
+    expect(page).toContain('verified review-request links');
   });
 
   it('searches products for the authenticated shop only', () => {
@@ -75,32 +71,18 @@ describe('admin add review', () => {
     if (!missingName.ok) expect(missingName.fieldErrors.displayName).toBeTruthy();
   });
 
-  it('rejects an unauthenticated or cross-site create before using a shop id from the browser', () => {
+  it('keeps merchant moderation requests authenticated and rejects cross-site requests', () => {
     const page = readFileSync('app/routes/app.reviews.tsx', 'utf8');
-    expect(page.indexOf('authenticate.admin')).toBeLessThan(page.indexOf('intent') );
+    expect(page).toContain('authenticate.admin');
     expect(page).not.toContain('form.get(\'shopId\')');
     const foreign = new Request('https://productreviews.it3.in/app/reviews', {headers: {origin: 'https://evil.example'}});
     expect(adminReviewRequestAllowed(foreign)).toBe(false);
     expect(adminReviewRequestAllowed(new Request('https://productreviews.it3.in/app/reviews'))).toBe(true);
   });
 
-  it('stores an admin review as not verified and records the admin source', () => {
-    const created = adminReviewCreateData({
-      shopId: 'shop-a',
-      productId: 'product-a',
-      data: {rating: 5, body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', title: 'Great board', status: 'APPROVED', featured: true, verifiedPurchase: false},
-      now: new Date('2026-10-01T00:00:00Z'),
-    });
-    expect(created.verifiedPurchase).toBe(false);
-    expect(adminReviewCreateData({
-      shopId: 'shop-a',
-      productId: 'product-a',
-      data: {rating: 5, body: 'This snowboard rides cleanly in soft snow.', displayName: 'Store Staff', status: 'PENDING', featured: false, verifiedPurchase: true},
-    }).verifiedPurchase).toBe(true);
-    expect(created.shopId).toBe('shop-a');
-    expect(created.rating).toBe(5);
-    expect(created.submittedAt.toISOString()).toBe('2026-10-01T00:00:00.000Z');
-    expect(readFileSync('app/modules/reviews/admin-review.server.ts', 'utf8')).toContain("event: 'review_created'");
+  it('does not retain an admin-created review source in production routes', () => {
+    expect(readFileSync('app/routes/app.reviews.tsx', 'utf8')).not.toContain('ADMIN_CREATED');
+    expect(readFileSync('app/routes/app.reviews.tsx', 'utf8')).not.toContain('createAdminReview');
     expect(readFileSync('app/storefront/review-widgets.js', 'utf8')).not.toContain('Admin added');
   });
 
@@ -139,8 +121,10 @@ describe('admin add review', () => {
     expect(ratings).toContain("status: 'APPROVED'");
     expect(submission).toContain('reviewSubmissionSchema.parse');
     expect(submission).toContain('verifyPurchase');
-    expect(submission).toContain("status: 'APPROVED'");
-    expect(readFileSync('app/routes/api.public.products.$productId.reviews.ts', 'utf8')).toContain("status: 'PENDING'");
+    expect(submission).toContain("status: 'PENDING'");
+    const publicApi = readFileSync('app/routes/api.public.products.$productId.reviews.ts', 'utf8');
+    expect(publicApi).toContain('REVIEW_REQUEST_REQUIRED');
+    expect(publicApi).not.toContain('db.review.create');
     expect(readFileSync('app/routes.ts', 'utf8')).toContain("route('api/public/ratings'");
   });
 });

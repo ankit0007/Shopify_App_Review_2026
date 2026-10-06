@@ -44,16 +44,12 @@ describe('Be the first to review', () => {
     loadScripts();
   });
 
-  it('opens the review submission form when the empty rating CTA is clicked', () => {
+  it('does not open a review submission form for an anonymous visitor', () => {
     const link = document.querySelector<HTMLAnchorElement>('.sr-rating__link');
     link?.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
     const panel = document.querySelector<HTMLElement>('[data-form-panel]');
-    expect(panel?.hidden).toBe(false);
-    expect(panel?.getAttribute('role')).toBe('dialog');
-    expect(panel?.querySelector('textarea[name="body"]')).toBeTruthy();
-    expect(panel?.querySelector('input[name="displayName"]')).toBeTruthy();
-    expect(panel?.querySelector('input[name="rating"]')).toBeTruthy();
-    expect(panel?.querySelector('[type="submit"]')).toBeTruthy();
+    expect(panel?.hidden).toBe(true);
+    expect(document.body.textContent).toContain('Reviews can be submitted after purchase through our review request email.');
   });
 
   it('leaves the form closed when the rating already has reviews', () => {

@@ -1,16 +1,11 @@
-import {useState} from 'react';
-import {data, Form, useLoaderData, useNavigation, useSearchParams} from 'react-router';
+import {Form, useLoaderData, useNavigation} from 'react-router';
 import {AdminListPagination} from '../components/admin-list-pagination';
-import {AddReviewDialog} from '../components/add-review-dialog';
-import {AdminShell, Badge, Button, EmbeddedFields, EmptyState, RatingStars, Skeleton, ToggleSwitch, statusTone} from '../components/admin/ui';
+import {AdminShell, Badge, EmbeddedFields, EmptyState, RatingStars, Skeleton, ToggleSwitch, statusTone} from '../components/admin/ui';
 import {authenticate} from '../shopify.server';
 import {config} from '../config.server';
 import {db} from '../db.server';
 import {decodeOpaqueCursor, encodeOpaqueCursor} from '../lib/shopify-signatures.server';
-import {adminReviewRequestAllowed, canonicalProductId} from '../modules/reviews/admin-review';
-import {createAdminReview, readAdminReviewForm, verifyShopProduct} from '../modules/reviews/admin-review.server';
 import {moderateReview} from '../modules/reviews/moderation.service.server';
-import {formatAverage} from '../modules/reviews/rating';
 import {pageCount} from '../modules/admin/page';
 import {
   adminReviewCursorPayload,
@@ -60,13 +55,12 @@ export async function loader({request}: {request: Request}) {
       verifiedPurchase: true,
       submittedAt: true,
       product: {select: {title: true}},
-      events: {where: {action: 'ADMIN_CREATED'}, select: {id: true}, take: 1},
     },
   }) : [];
   const query = {...listQuery, page};
   const cursorFor = (target: number) => encodeOpaqueCursor(adminReviewCursorPayload(query, target), config.SHOPIFY_API_SECRET);
   return {
-    reviews: reviews.map(({events, ...review}) => ({...review, adminAdded: events.length > 0, submittedAt: review.submittedAt.toISOString()})),
+    reviews: reviews.map((review) => ({...review, submittedAt: review.submittedAt.toISOString()})),
     filters: query,
     page,
     pages,
@@ -80,32 +74,9 @@ export async function loader({request}: {request: Request}) {
 }
 
 export async function action({request}: {request: Request}) {
-  const {session, admin} = await authenticate.admin(request);
+  const {session} = await authenticate.admin(request);
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}, select: {id: true}});
   const form = await request.formData();
-  if (form.get('intent') === 'create') {
-    if (!adminReviewRequestAllowed(request)) {
-      return data({ok: false, message: 'Request could not be verified.', fieldErrors: {}}, {status: 403});
-    }
-    if (!shop) return data({ok: false, message: 'Shop is not available.', fieldErrors: {}}, {status: 400});
-    const productId = canonicalProductId(form.get('productId'));
-    const parsed = readAdminReviewForm(form);
-    const fieldErrors = parsed.ok ? {} : parsed.fieldErrors;
-    if (!productId) fieldErrors.productId = 'Select a product from this store.';
-    if (!parsed.ok || !productId) {
-      return data({ok: false, message: 'Check the highlighted fields.', fieldErrors}, {status: 400});
-    }
-    try {
-      const product = await verifyShopProduct(admin, productId);
-      if (!product) {
-        return data({ok: false, message: 'That product is not available in this store.', fieldErrors: {productId: 'That product is not available in this store.'}}, {status: 400});
-      }
-      const result = await createAdminReview({shopId: shop.id, shopDomain: session.shop, product, data: parsed.data});
-      return data(result, {status: result.ok ? 200 : 400});
-    } catch {
-      return data({ok: false, message: 'The review could not be added. Please try again.', fieldErrors: {}}, {status: 500});
-    }
-  }
   const reviewId = String(form.get('reviewId') ?? '');
   const decision = form.get('decision');
   if (shop && reviewId && ['APPROVE', 'REJECT', 'HIDE', 'DELETE', 'FEATURE', 'VERIFY', 'UNVERIFY'].includes(String(decision))) {
@@ -121,36 +92,12 @@ export async function action({request}: {request: Request}) {
 export default function Reviews() {
   const {reviews, filters, page, pages, total, previousUrl, nextUrl, firstUrl, lastUrl, cursorRejected} = useLoaderData<typeof loader>();
   const navigation = useNavigation();
-  const [params] = useSearchParams();
-  const [adding, setAdding] = useState(params.get('add') === '1');
-  const [notice, setNotice] = useState<null | {
-    productTitle: string;
-    rating: number;
-    displayName: string;
-    status: 'APPROVED' | 'PENDING';
-    averageRating: number | null;
-    reviewCount: number;
-  }>(null);
   const loading = navigation.state === 'loading';
   return (
     <AdminShell
       title="Reviews"
-      subtitle="Approve, reject, and add reviews for this store."
-      actions={<Button onClick={() => setAdding(true)}>Add review</Button>}
+      subtitle="Review requests provide the customer-submitted reviews for this store."
     >
-      <AddReviewDialog open={adding} onClose={(review) => {
-        setAdding(false);
-        if (review) setNotice(review);
-      }} />
-      {notice ? (
-        <div role="status" className="mb-4 rounded-xl border border-[#b7ebc6] bg-[#e3f1df] p-4 text-sm text-[#0c5132]">
-          <strong>Review added successfully.</strong>
-          <p>{notice.productTitle} · {notice.rating} out of 5 stars · {notice.displayName} · {notice.status === 'APPROVED' ? 'Approved' : 'Pending'}</p>
-          <p>{notice.status === 'APPROVED'
-            ? `Public rating is now ${formatAverage(notice.averageRating) ?? '0.0'} from ${notice.reviewCount} ${notice.reviewCount === 1 ? 'review' : 'reviews'}.`
-            : 'This review is pending and is not included in the public rating.'}</p>
-        </div>
-      ) : null}
       {cursorRejected ? <p className="mb-3 text-sm text-[#8a6116]" role="status">That page link did not match these filters, so the first page is shown.</p> : null}
       <Form method="get" className="mb-4 flex flex-wrap items-end gap-2">
         <EmbeddedFields />
@@ -200,8 +147,8 @@ export default function Reviews() {
           <Skeleton className="h-12" />
         </div>
       ) : reviews.length === 0 ? (
-        <EmptyState title="No reviews yet" action={<Button onClick={() => setAdding(true)}>Add a review</Button>}>
-          Customer reviews from the product page will appear here. Approve a review to show it on the storefront.
+        <EmptyState title="No reviews yet">
+          Customer reviews submitted through verified review-request links will appear here. Approve a review to show it on the storefront.
         </EmptyState>
       ) : (
         <div className="grid gap-3">
@@ -210,7 +157,6 @@ export default function Reviews() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h2 className="text-base font-semibold">{review.product.title}</h2>
                 <div className="flex flex-wrap gap-2">
-                  {review.adminAdded ? <Badge tone="info">Admin added</Badge> : null}
                   {review.verifiedPurchase ? <Badge tone="success">Verified</Badge> : null}
                   <Badge tone={statusTone(review.status)}>{review.status}</Badge>
                 </div>

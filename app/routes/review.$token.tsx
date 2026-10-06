@@ -104,7 +104,7 @@ export async function action({ request, params }: { request: Request; params: { 
     });
     if (!purchased) return { ok: false, message: 'That product is not part of this review link.' };
   }
-  if (target.status === 'SUBMITTED') return { ok: true, productId, submitted: true, message: 'Review submitted. Thank you for sharing your experience.' };
+  if (target.status === 'SUBMITTED') return { ok: false, productId, submitted: true, message: 'This review request has already been used.' };
   const orderName = anchor.customer?.displayName?.replace(/[\r\n]+/g, ' ').trim() || 'Customer';
   const parsed = publicReviewSubmissionSchema.safeParse({
     rating: form.get('rating'),

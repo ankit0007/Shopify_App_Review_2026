@@ -18,19 +18,18 @@ export default function Faq() {
         <h2>How do I install the app?</h2>
         <p>Install Product Reviews on the Shopify store and approve the requested access to products, orders, and customers. Then open Product Reviews from the Shopify admin Apps list.</p>
         <h2>How do I configure the app?</h2>
-        <p>Open Settings. You can show or hide the storefront “Write a review” button, show or hide the Reviews button, turn automatic review-request emails on or off, choose whether those emails start after fulfillment or after payment, choose a delay from 2 to 10 days, and set a primary color. Save settings when you are done. For a new shop, the write-review button and automatic emails are off. The Reviews button setting starts on, but the button is not shown until you enable the Product Reviews app embed.</p>
+        <p>Open Settings to control the review-request emails, Reviews button, position editor, and storefront appearance. The retained “Write a review” setting does not enable public submissions: only eligible customers with a secure review-request email link can submit a review.</p>
         <h2>How do I display product reviews?</h2>
         <p>In the theme editor, enable the Product Reviews app embed for the floating Reviews button, and add the Product reviews block to a product template. Other blocks are Product rating and Product ratings. The button stays hidden when the app embed is off or when the Reviews button setting is off. The all-reviews page is served through the app proxy path <code>/apps/shopify-review/reviews</code>.</p>
         <h2>How are reviews collected?</h2>
         <ul>
-          <li>From the storefront form, when the write-review button is enabled. Those reviews stay pending until a merchant approves them.</li>
-          <li>From the link in a review-request email. Those reviews are published as approved.</li>
-          <li>From Add review on the Reviews page in the Shopify admin.</li>
+          <li>From the secure link in a review-request email sent for an eligible purchase.</li>
+          <li>Reviews submitted through that link enter moderation before appearing on the storefront.</li>
         </ul>
         <h2>How are reviews managed?</h2>
-        <p>Open Reviews. You can filter the list, move between pages, and use Approve, Disapprove, Hide, Feature, or Delete on a review. A verified-buyer switch is on each review. Add review creates a review for a product in the shop.</p>
+        <p>Open Reviews to filter the list, move between pages, and use Approve, Disapprove, Hide, Feature, or Delete on a review. A verified-buyer switch is available for moderation. Merchants cannot create customer reviews.</p>
         <h2>How do merchants moderate reviews?</h2>
-        <p>Only approved reviews are shown on the storefront. Disapprove, hide, or delete a review to keep it off the store. A review from the storefront form starts as pending. A review from a review-request email starts as approved.</p>
+        <p>Only approved reviews are shown on the storefront. Disapprove, hide, or delete a review to keep it off the store. Reviews submitted from a secure review-request email start as pending.</p>
         <h2>What happens when the app is uninstalled?</h2>
         <p>The app records the uninstall and cancels review requests that have not been sent. Stored reviews and customer records are not deleted at uninstall. They are deleted when Shopify later sends the shop redact webhook.</p>
         <h2>Does the app access customer information?</h2>

@@ -98,7 +98,8 @@ describe('shop review settings and fulfillment requests', () => {
     expect(sync).toContain('automaticRequestsEnabled');
     expect(worker).toContain('automaticRequests: true');
     expect(readFileSync('app/routes/webhooks.ts', 'utf8')).toContain('Shop uninstalled');
-    expect(widget).toContain('data.showWriteReviewButton !== true');
+    expect(widget).toContain('Reviews can be submitted after purchase through our review request email.');
+    expect(widget).not.toContain('button.addEventListener(() => openForm');
     expect(widget).toContain("link.dataset.viewAll = '1'");
     expect(widget).toContain("'/apps/shopify-review/reviews'");
     expect(privacy).toContain('reviewRequest.deleteMany');

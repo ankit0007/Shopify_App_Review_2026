@@ -1,16 +1,8 @@
-import {db} from '../../db.server';
-import {PlanService} from '../plans/plan.service.server';
-import {invalidateRatingCache} from './rating-cache.server';
-import {summarizeRatingCounts} from './rating';
 import {
-  ADMIN_REVIEW_EVENT,
-  ADMIN_REVIEW_SOURCE,
-  adminReviewCreateData,
   canonicalProductId,
   parseAdminProduct,
   parseAdminReviewForm,
   productSearchQuery,
-  shouldInvalidateRating,
   type AdminProductChoice,
   type AdminReviewInput,
 } from './admin-review';
@@ -57,12 +49,14 @@ export async function verifyShopProduct(admin: AdminClient, productId: string): 
   return product?.id === id ? product : null;
 }
 
-export async function createAdminReview(input: {
+export async function createAdminReview(_input: {
   shopId: string;
   shopDomain: string;
   product: AdminProductChoice;
   data: AdminReviewInput;
 }) {
+  return {ok: false as const, message: 'Customer reviews must be submitted through a secure review-request link.', fieldErrors: {}};
+  /*
   const plan = new PlanService();
   const reviewLimit = await plan.checkLimit(input.shopId, 'reviews');
   if (!reviewLimit.allowed) return {ok: false as const, message: 'This plan has reached its review limit.', fieldErrors: {}};
@@ -132,6 +126,7 @@ export async function createAdminReview(input: {
       reviewCount: summary.reviewCount,
     },
   };
+  */
 }
 
 export function readAdminReviewForm(form: FormData) {

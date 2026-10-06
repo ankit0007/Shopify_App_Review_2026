@@ -61,6 +61,10 @@ export function parseReviewCsv(csv: string) {
 }
 
 export async function importReviews(shopId: string, rows: ImportedReview[]) {
+  void shopId;
+  void rows;
+  throw new Error('Customer reviews cannot be imported or created by a merchant.');
+  /*
   return db.$transaction(async (tx) => {
     let imported = 0;
     for (const row of rows) {
@@ -83,6 +87,7 @@ export async function importReviews(shopId: string, rows: ImportedReview[]) {
     }
     return imported;
   });
+  */
 }
 
 export async function exportReviews(shopId: string) {

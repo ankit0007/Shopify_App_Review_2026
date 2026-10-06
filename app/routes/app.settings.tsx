@@ -185,7 +185,7 @@ function SettingsForm({
           <div className="mt-4">
             <ToggleSwitch
               label={'Show "Write a review" button'}
-              description="When this is off, that button stays hidden after a product has reviews. Be the first to review still opens the form when a product has no reviews. Customers can still submit reviews from a review-request email when this button is hidden."
+              description="Retained for compatibility with saved settings. Public visitors cannot submit reviews; eligible customers submit through a secure review-request email link."
               checked={showWriteReviewButton}
               onChange={setShowWriteReviewButton}
             />

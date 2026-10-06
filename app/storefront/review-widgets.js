@@ -101,13 +101,7 @@
       const empty = el('div', 'sr-empty');
       empty.append(stars(0, 'empty'));
       empty.append(el('h3', '', root.dataset.empty || 'No reviews yet'));
-      empty.append(el('p', '', root.dataset.emptyBody || 'Be the first to share your thoughts on this product.'));
-      if (data.showWriteReviewButton === true && root.dataset.showForm !== 'false') {
-        const button = el('button', 'sr-btn', 'Write the first review');
-        button.type = 'button';
-        button.addEventListener('click', () => openForm(root, button));
-        empty.append(button);
-      }
+      empty.append(el('p', '', 'Reviews can be submitted after purchase through our review request email.'));
       summary.append(empty);
       root.querySelector('[data-toolbar]').hidden = true;
       return;
@@ -144,15 +138,7 @@
         bars.append(button);
       });
     }
-    const write = el('button', 'sr-btn', root.dataset.write || 'Write a review');
-    write.type = 'button';
-    write.setAttribute('aria-expanded', 'false');
-    write.hidden = data.showWriteReviewButton !== true || root.dataset.showForm === 'false';
-    if (write.hidden) write.style.setProperty('display', 'none', 'important');
-    write.addEventListener('click', () => openForm(root, write));
-    const actions = el('div', 'sr__actions');
-    actions.append(write);
-    summary.append(score, bars, actions);
+    summary.append(score, bars);
   }
 
   function renderCard(root, review) {
@@ -309,9 +295,9 @@
     if (!control || (control.getAttribute('aria-label') || '').startsWith('Rated ')) return;
     const productId = control.closest('.shopify-review-rating')?.getAttribute('data-product-id');
     const root = productId ? document.getElementById(`shopify-product-reviews-${productId}`) : null;
-    if (!root || root.dataset.showForm === 'false') return;
+    if (!root) return;
     event.preventDefault();
-    openForm(root, control);
+    root.scrollIntoView({behavior: 'smooth', block: 'start'});
   });
 
   document.querySelectorAll('.shopify-review-widget').forEach((node) => {
