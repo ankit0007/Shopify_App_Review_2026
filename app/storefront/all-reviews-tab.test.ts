@@ -67,16 +67,16 @@ describe('floating Reviews button', () => {
   });
 
   it('does not create a second button when the embed script runs again', async () => {
-    await boot({showAllReviewsTab: true, reviewsButtonPosition: 'bottom-left', reviewsButtonOrientation: 'horizontal'});
+    await boot({showAllReviewsTab: true});
     window.eval(source);
     await Promise.resolve();
     expect(document.querySelectorAll('[data-pr-reviews-tab]')).toHaveLength(1);
     const shell = document.querySelector<HTMLElement>('[data-pr-reviews-tab]')!;
-    expect(shell.style.getPropertyValue('bottom')).toBe('50px');
-    expect(shell.style.getPropertyValue('left')).toBe('0px');
-    expect(shell.style.getPropertyValue('top')).toBe('auto');
-    expect(shell.style.getPropertyValue('right')).toBe('auto');
-    expect(shell.dataset.orientation).toBe('horizontal');
+    expect(shell.style.getPropertyValue('bottom')).toBe('auto');
+    expect(shell.style.getPropertyValue('left')).toBe('auto');
+    expect(shell.style.getPropertyValue('top')).toBe('50%');
+    expect(shell.style.getPropertyValue('right')).toBe('0px');
+    expect(shell.dataset.orientation).toBe('vertical');
   });
 
   it('keeps the default button available when the settings request fails', async () => {

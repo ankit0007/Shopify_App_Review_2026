@@ -131,13 +131,12 @@ async function loadSettings(shopId: string) {
   try {
     const settings = await db.shopSettings.findUnique({
       where: {shopId},
-      select: {automaticRequests: true, reviewRequestTrigger: true, requestDelayDays: true, showWriteReviewButton: true},
+      select: {automaticRequests: true, reviewRequestTrigger: true, requestDelayDays: true},
     });
     return {
       automaticRequests: settings?.automaticRequests === true,
       reviewRequestTrigger: reviewEmailTrigger(settings?.reviewRequestTrigger),
       requestDelayDays: settings?.requestDelayDays ?? null,
-      showWriteReviewButton: settings?.showWriteReviewButton === true,
     };
   } catch {
     return null;

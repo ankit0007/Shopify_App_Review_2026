@@ -13,28 +13,20 @@ function section(source: string, start: string, end: string) {
 }
 
 describe('settings page layout', () => {
-  it('renders every saved merchant setting and keeps the write-review control outside the Reviews button toggle', () => {
+  it('renders active merchant settings without an unrestricted write-review control', () => {
     for (const label of [
       'Enable Reviews Button',
-      'Show "Write a review" button',
       'Automatic review-request emails',
       'Send the review email when',
       'Wait this many days after fulfillment',
       'Primary color',
       'Save settings',
-      'Live Preview',
-      'Horizontal offset',
-      'Vertical offset',
-      'Button orientation',
     ]) {
       expect(settings).toContain(label);
     }
-    const reviewsButton = section(settings, '>Reviews Button<', '>Review display<');
+    const reviewsButton = section(settings, '>Reviews Button<', '>Review requests<');
     expect(reviewsButton).toContain('reviewsButtonEnabled ?');
     expect(reviewsButton).not.toContain('showWriteReviewButton');
-    const display = section(settings, '>Review display<', '>Review requests<');
-    expect(display).toContain('showWriteReviewButton');
-    expect(display).not.toContain('reviewsButtonEnabled ?');
     const requests = section(settings, '>Review requests<', '>Appearance<');
     expect(requests).not.toContain('automaticRequests ? (');
     expect(requests).toContain('reviewRequestTrigger');
@@ -43,12 +35,7 @@ describe('settings page layout', () => {
 
   it('loads and saves the existing settings keys without a second store', () => {
     for (const key of [
-      'showWriteReviewButton',
       'reviewsButtonEnabled',
-      'reviewsButtonPosition',
-      'reviewsButtonHorizontalOffset',
-      'reviewsButtonVerticalOffset',
-      'reviewsButtonOrientation',
       'automaticRequests',
       'reviewRequestTrigger',
       'requestDelayDays',
@@ -58,11 +45,8 @@ describe('settings page layout', () => {
       expect(settings).toContain(`name="${key}"`);
     }
     expect(settings).toContain('shopSettings.upsert');
-    expect(settings).toContain("reviewsButtonPosition: validReviewButtonPosition");
-    expect(settings).toContain(": 'middle-right'");
-    expect(settings).toContain('reviewsButtonHorizontalOffset ?? 0');
-    expect(settings).toContain('reviewsButtonVerticalOffset ?? 50');
-    expect(settings).toContain(": 'vertical'");
+    expect(settings).not.toContain('name="reviewsButtonPosition"');
+    expect(settings).not.toContain('name="reviewsButtonHorizontalOffset"');
   });
 
   it('uses the full admin width and a scrollable tab bar', () => {

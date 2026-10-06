@@ -141,6 +141,10 @@
   background: var(--sr-surface);
 }
 
+.shopify-reviews .sr__top.sr__top--empty {
+  display: block;
+}
+
 .shopify-reviews .sr__score {
   text-align: center;
   min-width: 120px;

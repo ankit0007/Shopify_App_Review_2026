@@ -205,7 +205,7 @@ export function DashboardView({data, loadedAt}: {data: DashboardData; loadedAt: 
             <p className="text-sm">{data.settings?.automaticRequests && data.settings.requestDelayDays ? `Sent ${data.settings.requestDelayDays} days after ${data.settings.reviewRequestTrigger === 'PAID' ? 'the order is paid' : 'fulfillment'}` : 'Automatic review requests are currently disabled.'}</p>
           </Card>
           <Card title="Storefront review button" action={<AdminLink className="text-sm font-semibold text-[#008060]" href="/app/settings">Manage setting</AdminLink>}>
-            <p className="text-sm">{data.settings?.showWriteReviewButton ? 'Customers can submit reviews directly from product pages.' : 'The Write a review button is hidden on storefront product pages.'}</p>
+            <p className="text-sm">Eligible customers submit reviews through secure review-request emails.</p>
           </Card>
           <Card title="Media reviews">
             {data.media ? (

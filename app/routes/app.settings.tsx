@@ -6,7 +6,7 @@ import {db} from '../db.server';
 import {isSameOrigin} from '../lib/csrf.server';
 import {loadEnabledSmtp} from '../modules/email/delivery.server';
 import {normalizeReviewDelayDays, REVIEW_DELAY_DAYS, reviewEmailTrigger, reviewRequestDelayDays} from '../modules/commerce/fulfillment-lines';
-import {REVIEW_BUTTON_ORIENTATIONS, REVIEW_BUTTON_POSITIONS, reviewButtonOffset, reviewButtonPreviewStyle, type ReviewButtonOrientation, type ReviewButtonPosition, validReviewButtonOrientation, validReviewButtonPosition} from '../modules/reviews/reviews-button';
+import {REVIEW_BUTTON_ORIENTATIONS, REVIEW_BUTTON_POSITIONS, reviewButtonPreviewStyle, type ReviewButtonOrientation, type ReviewButtonPosition} from '../modules/reviews/reviews-button';
 
 export async function loader({request}: {request: Request}) {
   const {session} = await authenticate.admin(request);
@@ -19,12 +19,7 @@ export async function loader({request}: {request: Request}) {
   }
   return {
     primaryColor: shop?.settings?.primaryColor ?? '#2563eb',
-    showWriteReviewButton: shop?.settings?.showWriteReviewButton === true,
     reviewsButtonEnabled: shop?.settings?.reviewsButtonEnabled ?? shop?.settings?.showAllReviewsTab !== false,
-    reviewsButtonPosition: validReviewButtonPosition(shop?.settings?.reviewsButtonPosition) ? shop.settings.reviewsButtonPosition : 'middle-right',
-    reviewsButtonHorizontalOffset: shop?.settings?.reviewsButtonHorizontalOffset ?? 0,
-    reviewsButtonVerticalOffset: shop?.settings?.reviewsButtonVerticalOffset ?? 50,
-    reviewsButtonOrientation: validReviewButtonOrientation(shop?.settings?.reviewsButtonOrientation) ? shop.settings.reviewsButtonOrientation : 'vertical',
     showAllReviewsTab: shop?.settings?.showAllReviewsTab !== false,
     automaticRequests: shop?.settings?.automaticRequests === true,
     reviewRequestTrigger: reviewEmailTrigger(shop?.settings?.reviewRequestTrigger),
@@ -43,15 +38,6 @@ export async function action({request}: {request: Request}) {
   }
   const shop = await db.shop.findUnique({where: {shopDomain: session.shop}});
   if (!shop) return {error: 'Shop is not initialized.'};
-  const reviewsButtonPosition = String(formData.get('reviewsButtonPosition') ?? '');
-  const reviewsButtonOrientation = String(formData.get('reviewsButtonOrientation') ?? '');
-  const reviewsButtonHorizontalOffset = reviewButtonOffset(formData.get('reviewsButtonHorizontalOffset'));
-  const reviewsButtonVerticalOffset = reviewButtonOffset(formData.get('reviewsButtonVerticalOffset'));
-  if (!validReviewButtonPosition(reviewsButtonPosition)) return {error: 'Choose a valid Reviews button position.'};
-  if (!validReviewButtonOrientation(reviewsButtonOrientation)) return {error: 'Choose a valid Reviews button orientation.'};
-  if (reviewsButtonHorizontalOffset === null || reviewsButtonVerticalOffset === null) {
-    return {error: 'Reviews button offsets must be whole numbers from 0 to 500.'};
-  }
   const reviewsButtonEnabled = formData.get('reviewsButtonEnabled') === 'true';
   const requestDelayDays = reviewRequestDelayDays(formData.get('requestDelayDays'));
   if (!requestDelayDays) return {error: 'Choose a delay from 2 to 10 days.'};
@@ -63,13 +49,8 @@ export async function action({request}: {request: Request}) {
     where: {shopId: shop.id},
     update: {
       primaryColor,
-      showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
       showAllReviewsTab: reviewsButtonEnabled,
       reviewsButtonEnabled,
-      reviewsButtonPosition,
-      reviewsButtonHorizontalOffset,
-      reviewsButtonVerticalOffset,
-      reviewsButtonOrientation,
       automaticRequests: formData.get('automaticRequests') === 'true',
       reviewRequestTrigger,
       requestDelayDays,
@@ -77,13 +58,8 @@ export async function action({request}: {request: Request}) {
     create: {
       shopId: shop.id,
       primaryColor,
-      showWriteReviewButton: formData.get('showWriteReviewButton') === 'true',
       showAllReviewsTab: reviewsButtonEnabled,
       reviewsButtonEnabled,
-      reviewsButtonPosition,
-      reviewsButtonHorizontalOffset,
-      reviewsButtonVerticalOffset,
-      reviewsButtonOrientation,
       automaticRequests: formData.get('automaticRequests') === 'true',
       reviewRequestTrigger,
       requestDelayDays,
@@ -108,7 +84,7 @@ export default function Settings() {
       )}
     >
       <SettingsForm
-        key={`${settings.showWriteReviewButton}:${settings.reviewsButtonEnabled}:${settings.reviewsButtonPosition}:${settings.reviewsButtonHorizontalOffset}:${settings.reviewsButtonVerticalOffset}:${settings.reviewsButtonOrientation}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
+        key={`${settings.reviewsButtonEnabled}:${settings.automaticRequests}:${settings.reviewRequestTrigger}:${settings.requestDelayDays}:${settings.primaryColor}`}
         settings={settings}
         result={result}
         saving={saving}
@@ -127,24 +103,14 @@ function SettingsForm({
   saving: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [showWriteReviewButton, setShowWriteReviewButton] = useState(settings.showWriteReviewButton);
   const [reviewsButtonEnabled, setReviewsButtonEnabled] = useState(settings.reviewsButtonEnabled);
-  const [reviewsButtonPosition, setReviewsButtonPosition] = useState<ReviewButtonPosition>(settings.reviewsButtonPosition);
-  const [reviewsButtonHorizontalOffset, setReviewsButtonHorizontalOffset] = useState(settings.reviewsButtonHorizontalOffset);
-  const [reviewsButtonVerticalOffset, setReviewsButtonVerticalOffset] = useState(settings.reviewsButtonVerticalOffset);
-  const [reviewsButtonOrientation, setReviewsButtonOrientation] = useState<ReviewButtonOrientation>(settings.reviewsButtonOrientation);
   const [automaticRequests, setAutomaticRequests] = useState(settings.automaticRequests);
   const [reviewRequestTrigger, setReviewRequestTrigger] = useState(settings.reviewRequestTrigger);
   const [requestDelayDays, setRequestDelayDays] = useState(settings.requestDelayDays);
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
   return (
     <Form id="settings-form" method="post" ref={formRef} className="grid w-full min-w-0 gap-5">
-      <input type="hidden" name="showWriteReviewButton" value={showWriteReviewButton ? 'true' : 'false'} />
       <input type="hidden" name="reviewsButtonEnabled" value={reviewsButtonEnabled ? 'true' : 'false'} />
-      <input type="hidden" name="reviewsButtonPosition" value={reviewsButtonPosition} />
-      <input type="hidden" name="reviewsButtonHorizontalOffset" value={reviewsButtonHorizontalOffset} />
-      <input type="hidden" name="reviewsButtonVerticalOffset" value={reviewsButtonVerticalOffset} />
-      <input type="hidden" name="reviewsButtonOrientation" value={reviewsButtonOrientation} />
       <input type="hidden" name="automaticRequests" value={automaticRequests ? 'true' : 'false'} />
       <input type="hidden" name="reviewRequestTrigger" value={reviewRequestTrigger} />
       <input type="hidden" name="requestDelayDays" value={requestDelayDays} />
@@ -156,7 +122,7 @@ function SettingsForm({
       ) : null}
       <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
         <h2 className="text-base font-semibold">Reviews Button</h2>
-        <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button and its position.</p>
+        <p className="mt-1 text-sm text-[#6d7175]">Control the store-wide Reviews button.</p>
         <div className="mt-4">
           <ToggleSwitch
             label="Enable Reviews Button"
@@ -165,32 +131,9 @@ function SettingsForm({
             onChange={setReviewsButtonEnabled}
           />
         </div>
-        {reviewsButtonEnabled ? (
-          <ReviewsButtonEditor
-            position={reviewsButtonPosition}
-            setPosition={setReviewsButtonPosition}
-            horizontalOffset={reviewsButtonHorizontalOffset}
-            setHorizontalOffset={setReviewsButtonHorizontalOffset}
-            verticalOffset={reviewsButtonVerticalOffset}
-            setVerticalOffset={setReviewsButtonVerticalOffset}
-            orientation={reviewsButtonOrientation}
-            setOrientation={setReviewsButtonOrientation}
-          />
-        ) : <p className="mt-4 text-sm text-[#6d7175]">Turn the Reviews button on to choose its position, offsets, and orientation.</p>}
+        {!reviewsButtonEnabled ? <p className="mt-4 text-sm text-[#6d7175]">Turn the Reviews button on to show it on the storefront.</p> : null}
       </section>
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Review display</h2>
-          <p className="mt-1 text-sm text-[#6d7175]">This control is separate from the store-wide Reviews button.</p>
-          <div className="mt-4">
-            <ToggleSwitch
-              label={'Show "Write a review" button'}
-              description="Retained for compatibility with saved settings. Public visitors cannot submit reviews; eligible customers submit through a secure review-request email link."
-              checked={showWriteReviewButton}
-              onChange={setShowWriteReviewButton}
-            />
-          </div>
-        </section>
         <section className="rounded-xl border border-[#e3e3e3] bg-white p-4 sm:p-5">
           <h2 className="text-base font-semibold">Review requests</h2>
           <p className="mt-1 text-sm text-[#6d7175]">One email covers every product in the order. The customer reviews them together on one page.</p>
@@ -242,6 +185,8 @@ function SettingsForm({
 function positionLabel(position: ReviewButtonPosition) {
   return REVIEW_BUTTON_POSITIONS.find(([value]) => value === position)?.[1] ?? 'Middle right';
 }
+
+void ReviewsButtonEditor;
 
 function ReviewsButtonEditor({
   position,

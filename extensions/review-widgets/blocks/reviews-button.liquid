@@ -1,10 +1,10 @@
 <div class="pr-reviews-tab-host" data-all-reviews-tab data-shop="{{ shop.permanent_domain | escape }}" hidden></div>
-<script src="{{ 'all-reviews-tab.js' | asset_url }}" defer></script>
 
 {% schema %}
 {
   "name": "Product Reviews",
   "target": "body",
+  "javascript": "all-reviews-tab.js",
   "stylesheet": "review-widgets.css",
   "settings": [
     {

@@ -80,21 +80,13 @@ export async function loader({request}: {request: Request}) {
           select: {
             showAllReviewsTab: true,
             reviewsButtonEnabled: true,
-            reviewsButtonPosition: true,
-            reviewsButtonHorizontalOffset: true,
-            reviewsButtonVerticalOffset: true,
-            reviewsButtonOrientation: true,
           },
         },
       },
     });
     const settings = shopRow?.settings;
     const showAllReviewsTab = settings?.reviewsButtonEnabled ?? settings?.showAllReviewsTab !== false;
-    const reviewsButtonPosition = settings?.reviewsButtonPosition ?? 'middle-right';
-    const reviewsButtonHorizontalOffset = settings?.reviewsButtonHorizontalOffset ?? 0;
-    const reviewsButtonVerticalOffset = settings?.reviewsButtonVerticalOffset ?? 50;
-    const reviewsButtonOrientation = settings?.reviewsButtonOrientation ?? 'vertical';
-    if (!shopRow) return ok({...emptyPayload(), showAllReviewsTab, reviewsButtonPosition, reviewsButtonHorizontalOffset, reviewsButtonVerticalOffset, reviewsButtonOrientation}, {headers: {'Cache-Control': 'private, no-store'}});
+    if (!shopRow) return ok({...emptyPayload(), showAllReviewsTab}, {headers: {'Cache-Control': 'private, no-store'}});
     const approved = globalApprovedWhere(shopRow.id);
     const orderBy = listQuery.sort === 'highest'
       ? [{rating: 'desc' as const}, {submittedAt: 'desc' as const}, {id: 'desc' as const}]
@@ -137,10 +129,6 @@ export async function loader({request}: {request: Request}) {
         };
       }),
       showAllReviewsTab,
-      reviewsButtonPosition,
-      reviewsButtonHorizontalOffset,
-      reviewsButtonVerticalOffset,
-      reviewsButtonOrientation,
       nextCursor: page.hasMore && last ? encodeOpaqueCursor(cursorPayload(listQuery.sort, listQuery.rating, last.id), config.SHOPIFY_API_SECRET) : null,
       averageRating: summary.averageRating,
       totalReviews: summary.reviewCount,

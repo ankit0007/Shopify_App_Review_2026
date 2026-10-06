@@ -34,19 +34,7 @@
   tab.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${PATH}"/></svg><span>Reviews</span>`;
   shell.append(tab);
 
-  function clamp(value, fallback) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.min(500, Math.max(0, parsed)) : fallback;
-  }
-
-  function applyButtonSettings(data) {
-    const position = String(data?.reviewsButtonPosition || 'middle-right');
-    const parts = position.split('-');
-    const row = ['top', 'middle', 'bottom'].includes(parts[0]) ? parts[0] : 'middle';
-    const column = ['left', 'center', 'right'].includes(parts[1]) ? parts[1] : 'right';
-    const horizontal = clamp(data?.reviewsButtonHorizontalOffset, 0);
-    const vertical = clamp(data?.reviewsButtonVerticalOffset, 50);
-    const transforms = [];
+  function applyButtonSettings() {
     const pin = (name, value) => shell.style.setProperty(name, value, 'important');
     ['top', 'right', 'bottom', 'left'].forEach((edge) => pin(edge, 'auto'));
     pin('position', 'fixed');
@@ -58,24 +46,14 @@
     pin('margin-left', '0px');
     pin('background', 'transparent');
     pin('padding', '0px');
-    if (row === 'middle') {
-      pin('top', '50%');
-      pin('margin-top', `${vertical - 50}px`);
-      transforms.push('translateY(-50%)');
-    } else if (row === 'top') pin('top', `${vertical}px`);
-    else pin('bottom', `${vertical}px`);
-    if (column === 'left') pin('left', `${horizontal}px`);
-    else if (column === 'center') {
-      pin('left', '50%');
-      pin('margin-left', `${horizontal}px`);
-      transforms.push('translateX(-50%)');
-    } else pin('right', `${horizontal}px`);
-    pin('transform', transforms.join(' ') || 'none');
+    pin('top', '50%');
+    pin('right', '0px');
+    pin('transform', 'translateY(-50%)');
     tab.style.setProperty('width', 'max-content', 'important');
     tab.style.setProperty('height', 'max-content', 'important');
     tab.style.setProperty('max-width', 'max-content', 'important');
     tab.style.setProperty('background', '#111', 'important');
-    shell.dataset.orientation = data?.reviewsButtonOrientation === 'horizontal' ? 'horizontal' : 'vertical';
+    shell.dataset.orientation = 'vertical';
   }
 
   function mount(data) {
@@ -84,7 +62,7 @@
       modal.remove();
       return;
     }
-    applyButtonSettings(data);
+    applyButtonSettings();
     if (!shell.isConnected) document.body.append(shell, modal);
   }
   const modal = el('div', 'sr-tab-modal');
@@ -198,6 +176,7 @@
   }
 
   tab.addEventListener('click', open);
+  document.addEventListener('product-reviews:open-all', open);
   close.addEventListener('click', shut);
   more.addEventListener('click', () => load(cursor));
   modal.addEventListener('click', (event) => {

@@ -20,6 +20,7 @@ describe('storefront widget safety', () => {
     const ratingEmbed = source('blocks/rating-embed.liquid');
     expect(button).toContain('"name": "Product Reviews"');
     expect(button).toContain('"target": "body"');
+    expect(button).toContain('"javascript": "all-reviews-tab.js"');
     expect(button).toContain('"stylesheet": "review-widgets.css"');
     expect(button).toContain('pr-reviews-tab-host');
     expect(button).toContain('all-reviews-tab.js');

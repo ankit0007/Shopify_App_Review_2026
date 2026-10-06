@@ -84,6 +84,10 @@
     const link = el('a', 'sr-btn sr-btn--ghost', 'View all reviews');
     link.href = '/apps/shopify-review/reviews';
     link.dataset.viewAll = '1';
+    link.addEventListener('click', (event) => {
+      const popup = new CustomEvent('product-reviews:open-all', {cancelable: true});
+      if (document.dispatchEvent(popup)) event.preventDefault();
+    });
     const row = el('div', 'sr__heading');
     heading.replaceWith(row);
     row.append(heading, link);
@@ -98,6 +102,7 @@
     const count = Number(data.totalReviews) || 0;
     const average = count && Number.isFinite(Number(data.averageRating)) ? Number(data.averageRating) : null;
     if (!count) {
+      summary.classList.add('sr__top--empty');
       const empty = el('div', 'sr-empty');
       empty.append(stars(0, 'empty'));
       empty.append(el('h3', '', root.dataset.empty || 'No reviews yet'));
@@ -106,6 +111,7 @@
       root.querySelector('[data-toolbar]').hidden = true;
       return;
     }
+    summary.classList.remove('sr__top--empty');
     const score = el('div', 'sr__score');
     const avg = el('div', 'sr__avg', average.toFixed(1));
     avg.append(el('span', '', ' / 5'));
